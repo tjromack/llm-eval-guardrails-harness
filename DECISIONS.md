@@ -157,3 +157,25 @@ These are the script for "why did you build it this way?" Add an entry on every 
   rather than free during the run. Both are fine at portfolio scale.
 - Revisit if: suites get large enough that storing full outputs is costly → store hashes/excerpts
   with opt-in full capture.
+
+## 013. Rule checks: pure functions returning pass/fail + reason; markers are harness-owned
+- Phase: 4
+- Decision: Each deterministic check is a pure function of `(output, light context, params)` that
+  returns a `CheckResult(passed, reason)` — always a boolean with an explanation, never a maybe.
+  Abstention/refusal are decided by **marker phrase sets** and PII by a small **pattern set**, all
+  defined in `app/checks.py` and exported so `selfcheck` fixtures (Phase 7) test the checks
+  themselves. `citation_present` looks in the output text and falls back to the trace's citations.
+  Verdicts persist to a `check_results` table (`layer='rule'`) so the judge (Phase 5) and reporting
+  (Phase 6) share one shape.
+- Alternatives considered: a judge/LLM call for abstention/refusal; returning only a boolean with no
+  reason; an NER library for PII; storing rule verdicts in a separate schema from judge verdicts.
+- Why: Markers/patterns are cheap, deterministic, and inspectable — and because they're the part
+  most likely to be subtly wrong, they're fixture-tested in selfcheck (closes the "who checks the
+  checker" gap for the deterministic layer). Carrying a `reason` makes a failing check actionable in
+  the dashboard and the demo, not just a red dot. One `check_results` table with a `layer` column
+  lets Phase 6 aggregate rule + judge uniformly.
+- Tradeoff accepted: marker/pattern matching misses creative phrasings and exotic PII formats — by
+  design the judge is *not* used here (Decision 003); the marker sets are versioned with the harness
+  and grown as gaps surface. PII patterns are tuned for synthetic identifiers, not exhaustive.
+- Revisit if: real targets phrase refusals/abstentions in ways markers miss, or a target handles
+  real PII formats → add a judged fallback and/or an NER-backed PII check.

@@ -50,6 +50,19 @@ CREATE TABLE IF NOT EXISTS case_results (
     created_at  TEXT    NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_case_results_run ON case_results(run_id);
+
+CREATE TABLE IF NOT EXISTS check_results (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id     INTEGER NOT NULL REFERENCES runs(id),
+    case_id    TEXT    NOT NULL,
+    check_type TEXT    NOT NULL,
+    layer      TEXT    NOT NULL DEFAULT 'rule',  -- 'rule' (Phase 4) or 'judge' (Phase 5)
+    passed     INTEGER NOT NULL,                 -- 0/1
+    score      REAL,                             -- judge score; rule checks mirror passed
+    reason     TEXT,
+    created_at TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_check_results_run ON check_results(run_id);
 """
 
 
@@ -133,6 +146,41 @@ def add_case_result(
     return int(cur.lastrowid)
 
 
+def add_check_result(
+    conn: sqlite3.Connection,
+    *,
+    run_id: int,
+    case_id: str,
+    check_type: str,
+    layer: str,
+    passed: bool,
+    score: float | None,
+    reason: str,
+) -> int:
+    cur = conn.execute(
+        """INSERT INTO check_results
+           (run_id, case_id, check_type, layer, passed, score, reason, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (run_id, case_id, check_type, layer, int(passed), score, reason, _now()),
+    )
+    conn.commit()
+    return int(cur.lastrowid)
+
+
+def clear_check_results(
+    conn: sqlite3.Connection, run_id: int, *, layer: str | None = None
+) -> None:
+    """Remove prior check results for a run so re-scoring is idempotent."""
+    if layer is None:
+        conn.execute("DELETE FROM check_results WHERE run_id = ?", (run_id,))
+    else:
+        conn.execute(
+            "DELETE FROM check_results WHERE run_id = ? AND layer = ?",
+            (run_id, layer),
+        )
+    conn.commit()
+
+
 def finish_run(
     conn: sqlite3.Connection,
     run_id: int,
@@ -182,4 +230,10 @@ def list_runs(conn: sqlite3.Connection, limit: int = 50) -> list[RunRow]:
 def get_case_results(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.Row]:
     return conn.execute(
         "SELECT * FROM case_results WHERE run_id = ? ORDER BY id", (run_id,)
+    ).fetchall()
+
+
+def get_check_results(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT * FROM check_results WHERE run_id = ? ORDER BY case_id, id", (run_id,)
     ).fetchall()

@@ -29,11 +29,12 @@ Build in phases. **Stop at each approval gate.** Commit at every phase boundary.
 - [x] `make eval-run` runs the suite end to end.
 - **Gate:** a full suite runs against the target and stores raw results.
 
-## Phase 4 — Deterministic rule checks
-- [ ] `app/checks.py`: must-include/exclude, format/schema, citation-present, abstention/refusal
-      correctness, PII-leak detection, regex/assertions.
-- [ ] Each case's checks score pass/fail with reasons.
+## Phase 4 — Deterministic rule checks ✅
+- [x] `app/checks.py`: must-include/exclude, format/schema (regex), citation-present,
+      abstention/refusal correctness, PII-leak detection. (`format` covers regex/assertions.)
+- [x] Each case's checks score pass/fail with reasons; verdicts persist to `check_results`.
 - **Gate:** rule checks correctly pass/fail on the sample suite, including guardrail cases.
+      (`python -m app.checks --run <id>`; 18/18 pass on baseline; fail-side covered by tests.)
 
 ## Phase 5 — LLM-as-judge
 - [ ] `app/judge.py`: judge qualitative properties (groundedness, correctness vs reference) with a
