@@ -10,12 +10,12 @@ Build in phases. **Stop at each approval gate.** Commit at every phase boundary.
 - [x] All docs present (`README`, `CLAUDE.md`, `TODO.md`, `DECISIONS.md`, `DEMO.md`, `EVAL.md`).
 - **Gate:** app boots; structure agreed.
 
-## Phase 1 — Suite format & sample suite
-- [ ] `app/suite.py`: a test-case format — input, reference/expected, and a list of checks
+## Phase 1 — Suite format & sample suite ✅
+- [x] `app/suite.py`: a test-case format — input, reference/expected, and a list of checks
       (deterministic + judge), plus a `category` (incl. `guardrail` / `adversarial`).
-- [ ] `data/suites/rag_copilot.suite.json`: a starter suite for the RAG copilot, including
+- [x] `data/suites/rag_copilot.suite.json`: a starter suite for the RAG copilot, including
       out-of-scope cases that must abstain and at least one PII-leak probe.
-- **Gate:** suite format reviewed; sample suite inspectable.
+- **Gate:** suite format reviewed; sample suite inspectable. (`python -m app.suite` inspects it.)
 
 ## Phase 2 — Target adapter interface (RAG copilot first)
 - [ ] `app/adapters/`: a thin interface — given a case input, return target output + trace.

@@ -79,3 +79,41 @@ These are the script for "why did you build it this way?" Add an entry on every 
 - Why: Anyone can build more demos. Building the thing that *measures* your other work — judge
   calibration and all — is the signal that separates an engineer from a hobbyist, and it ties the
   portfolio together into one body of work with a shared quality bar.
+
+## 009. Suite format: one JSON file, typed checks inline
+- Phase: 1
+- Decision: A suite is a single JSON file — an envelope (`suite_id`, `target`, `rubric_version`,
+  `thresholds`) plus a `cases` list. Each case holds `input`, `reference`, `category`, and a list
+  of `checks`, where each check is `{ "type": ..., ...params }`. The check `type` routes scoring:
+  types prefixed `judge_` go to the LLM judge; all others are deterministic. `app/suite.py` loads
+  and validates (unknown types, missing params, bad category, duplicate ids) and exposes the
+  rule-vs-judge split as `case.rule_checks` / `case.judge_checks`.
+- Alternatives considered: YAML suites; a separate checks file keyed by case id; a generic
+  `assertions` blob interpreted later.
+- Why: JSON needs no extra dependency and is the same format runs/scores persist in (SQLite JSON),
+  so there's one mental model. Putting typed checks *inline on the case* makes the check-vs-judge
+  split (Decision 003) visible in the data and lets validation fail loudly at load time rather than
+  mid-run. The `type`-prefix convention keeps routing declarative — no per-case "is this a judge
+  thing?" flag to keep in sync.
+- Tradeoff accepted: JSON has no comments (worked around with a `_note` field); a very large suite
+  in one file is less ergonomic than many small files — fine at portfolio scale, revisit with
+  dataset versioning.
+- Revisit if: suites grow past a few hundred cases or need composition/imports.
+
+## 010. Phase-1 case-shape calls: plain-string input, deterministic abstention, synthetic PII plant
+- Phase: 1
+- Decision: (a) `input` is a plain string question by default (an object `{question, context}` is
+  permitted for hermetic judge cases); (b) abstention/refusal correctness is a **deterministic**
+  check, not a judge call; (c) the PII-leak probe plants **synthetic** identifiers in the input and
+  fails if the target echoes them back — even though the user supplied them.
+- Alternatives considered: (a) always pin context in the suite; (b) ask the judge whether the
+  target abstained; (c) only probe PII that the model might fabricate unprompted.
+- Why: (a) A plain string keeps the adapter thin and tests the copilot's *own* retrieval, which is
+  what we want to regress on; pinned context stays available for cases that must be judged
+  hermetically. (b) Abstention is a property you can check by markers/phrasing — cheaper and more
+  reproducible than a judge, and it keeps the judge scoped to the genuinely qualitative
+  (Decision 003). (c) Echo-back is the realistic leak path and is trivially, deterministically
+  checkable; using synthetic identifiers honors the no-real-data rule (Decision 007).
+- Tradeoff accepted: deterministic abstention detection can be fooled by unusual phrasing — the
+  marker set is part of the harness and itself fixture-tested in `selfcheck` (Phase 7).
+- Revisit if: targets phrase abstention in ways the marker check misses → add a judged fallback.
