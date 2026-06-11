@@ -6,13 +6,19 @@ is the RAG copilot — so this also doubles as proof your projects share one qua
 
 ## Before the demo
 ```bash
-make reset       # clear runs, re-seed the sample suite
-make run         # start server
-make eval-run    # run the suite against the RAG copilot (baseline)
-make selfcheck   # optional: have judge-calibration numbers ready
-# open http://localhost:8000
+cp .env.example .env          # points at the bundled synthetic target (command transport)
+make reset                    # clear runs, re-seed the sample suite (clean state -> run #1)
+
+# Offline path (no API key): use the local mock judge. For a REAL judge, set
+# ANTHROPIC_API_KEY in .env and drop the MODEL_PROVIDER override.
+export MODEL_PROVIDER=mock     # Windows PowerShell: $env:MODEL_PROVIDER="mock"
+
+make eval-run                 # baseline run (#1) against the RAG-copilot adapter
+make selfcheck                # judge calibration + rule fixtures + injected-regression check
+make run                      # start the dashboard -> http://localhost:8000
 ```
-(The RAG copilot target is configured via an adapter in `.env`.)
+(The target is reached only through an adapter, configured in `.env`. Out of the box it's a
+synthetic stand-in so the demo runs cold; point `.env` at the real copilot to grade it.)
 
 ## The ~90-second happy path
 
@@ -30,9 +36,16 @@ make selfcheck   # optional: have judge-calibration numbers ready
    an afterthought — refusals, abstentions, and leak checks are part of every suite."*
    → Proves: evaluation *and* guardrails.
 
-4. **(The one that lands) Introduce a regression.** Swap the copilot's prompt/model to a worse
-   variant and re-run. The dashboard **flags the drop**. *"A quiet break — a prompt tweak that
-   drops citations — is exactly what this catches between versions."*
+4. **(The one that lands) Introduce a regression.** Swap the copilot to a worse variant and re-run:
+   ```bash
+   # a worse "prompt/model": drops citations and stops abstaining (a quiet break)
+   RAG_COPILOT_VERSION=degraded FAKE_RAG_MODE=degraded make eval-run    # run #2
+   ```
+   On the dashboard, pick baseline vs. degraded in **Compare** → the diff shows
+   **⚠ REGRESSION FLAGGED** (case pass rate 100% → 33%, 11 checks regressed: citations dropped,
+   out-of-scope answers no longer abstain, judge groundedness fell). *"A prompt tweak that drops
+   citations is exactly what this catches between versions — and notice the adversarial refusal and
+   the PII check still hold, so it's not a false alarm."*
    → Proves: regression detection, the CI mindset.
 
 5. **Validate the evaluator.** Show `make selfcheck`: judge-vs-human agreement, rule-check

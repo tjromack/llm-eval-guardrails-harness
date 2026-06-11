@@ -96,6 +96,16 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE runs ADD COLUMN judge_model TEXT")
 
 
+def reset_db(conn: sqlite3.Connection) -> None:
+    """Clear all runs/results for a clean demo state; keep the schema."""
+    init_db(conn)
+    for table in ("check_results", "case_results", "runs"):
+        conn.execute(f"DELETE FROM {table}")
+    # Reset autoincrement so the next run is #1 again (nicer for demos).
+    conn.execute("DELETE FROM sqlite_sequence")
+    conn.commit()
+
+
 # ---- writes ---------------------------------------------------------------
 
 

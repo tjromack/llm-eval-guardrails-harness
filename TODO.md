@@ -50,12 +50,15 @@ Build in phases. **Stop at each approval gate.** Commit at every phase boundary.
 - **Gate:** change the target's prompt/model, re-run, and see the regression flagged.
       (Baseline vs `FAKE_RAG_MODE=degraded`: case pass rate 100%→33%, 11 checks flagged.)
 
-## Phase 7 — Validate the evaluator, polish & demo
-- [ ] `app/selfcheck.py`: judge calibration vs `data/calibration/judge_gold.json` (human labels);
+## Phase 7 — Validate the evaluator, polish & demo ✅
+- [x] `app/selfcheck.py`: judge calibration vs `data/calibration/judge_gold.json` (human labels);
       rule-check correctness against known-good/known-bad fixtures; confirm an injected regression
-      is detected. `make selfcheck` prints the report (see `EVAL.md`).
-- [ ] Empty/error states; graceful handling of target/judge failures.
-- [ ] Finalize `DEMO.md`; verify `make reset` → demo path works cold.
+      is detected. `make selfcheck` prints the report (see `EVAL.md`). Hard gates: fixtures 100% +
+      regression flagged; judge gate soft for the offline mock, hard for a real provider.
+- [x] Empty/error states; graceful handling of target/judge failures (errors-as-results;
+      judge-unavailable recorded, not silent; target errors surfaced in the run view; 404s + empty
+      dashboard).
+- [x] `app/seed.py` (`make seed` / `make reset`); finalized `DEMO.md`; verified the cold demo path.
 - **Gate:** full demo + self-check run from a clean state.
 
 ---

@@ -222,3 +222,27 @@ These are the script for "why did you build it this way?" Add an entry on every 
   reads FAIL) — the per-check view and per-layer tallies expose that detail. A fixed EPS is a blunt
   threshold; per-check thresholds are a later refinement.
 - Revisit if: suites need weighted/criticality-tiered checks or per-metric regression thresholds.
+
+## 016. Self-check has hard gates (fixtures, regression) and a soft, honest judge gate
+- Phase: 7
+- Decision: `selfcheck` runs three validations and exits non-zero only on a *hard* gate failure:
+  rule-check fixtures must be 100% and the injected regression must be flagged. Judge calibration is
+  reported against a human-labeled gold set and compared to a 0.90 threshold, but a sub-threshold
+  result fails the run **only when a real provider is configured** — with the offline `mock` it
+  prints PASS-with-a-loud-caveat. If no real provider can be built, selfcheck falls back to the mock
+  and says so explicitly rather than skipping calibration silently.
+- Alternatives considered: make every gate hard (mock calibration would always fail the run); skip
+  calibration when offline (hides the mechanism); trust the judge without a gold set.
+- Why: The deterministic layer carries the load (Decision 003), so its fixtures and the
+  regression-detection logic are the parts that *must* be correct — those are hard gates. Judge
+  calibration is inherently provider-dependent: gating the whole harness on a stand-in's number
+  would be theater, but hiding the number would defeat the "who evaluates the evaluator" point
+  (Decision 004). The mock-vs-real split lets `make selfcheck` run cold and honestly, while still
+  failing a *real* judge that isn't trustworthy. The gold set deliberately includes one subtle
+  contradiction (cal-012, 30-vs-60 days) a lexical judge misses, so the disagreement-reporting path
+  is exercised and the small-set limitation stays visible.
+- Tradeoff accepted: a green offline selfcheck does not prove the shippable judge is calibrated —
+  only a run with a real provider does; the report states this plainly. The gold set is small and
+  directional (EVAL.md), not a statistical guarantee.
+- Revisit if: calibration needs a larger/stratified gold set, per-criterion thresholds, or
+  precision/recall on the judge's "fail" call rather than raw agreement.

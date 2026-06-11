@@ -107,6 +107,7 @@ class CaseReport:
     case_id: str
     category: str
     checks: list[CheckView]
+    target_error: str | None = None
 
     @property
     def n_checks(self) -> int:
@@ -187,10 +188,13 @@ def build_run_report(
             )
         )
 
+    # Surface any target-call error captured at run time (graceful failure state).
+    errors = {r["case_id"]: r["error"] for r in store.get_case_results(conn, run_id)}
+
     category_of = {c.id: c.category for c in suite.cases}
     order = [c.id for c in suite.cases]
     cases = [
-        CaseReport(cid, category_of.get(cid, "?"), by_case[cid])
+        CaseReport(cid, category_of.get(cid, "?"), by_case[cid], errors.get(cid))
         for cid in order
         if cid in by_case
     ]

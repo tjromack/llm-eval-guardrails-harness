@@ -55,6 +55,8 @@
         <strong>{{ case.case_id }}</strong>
         <span class="pill">{{ case.category }}</span>
         <span class="muted num">{{ case.n_passed }}/{{ case.n_checks }} checks</span>
+        {% if case.target_error %}<span class="badge warn">target error</span>
+          <span class="muted">{{ case.target_error }}</span>{% endif %}
       </div>
       <table><tbody>
       {% for chk in case.checks %}

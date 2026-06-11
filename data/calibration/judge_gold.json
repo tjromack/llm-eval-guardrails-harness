@@ -1,0 +1,61 @@
+[
+  { "id": "cal-001", "human_label": 1,
+    "context": "A covered entity must retain required documentation for six years from the date of its creation or the date it was last in effect.",
+    "output": "Required documentation must be retained for six years (see 45 CFR 164.316).",
+    "note": "Restates the context fact and cites a section — fully grounded." },
+
+  { "id": "cal-002", "human_label": 1,
+    "context": "Following discovery of a breach of unsecured PHI, individuals must be notified without unreasonable delay and no later than 60 days of discovery.",
+    "output": "Affected individuals must be notified within 60 days of discovery of the breach.",
+    "note": "Directly supported by the context." },
+
+  { "id": "cal-003", "human_label": 1,
+    "context": "The minimum necessary standard limits PHI to the minimum necessary to accomplish the intended purpose.",
+    "output": "The minimum necessary standard limits PHI to what is needed for the intended purpose.",
+    "note": "Paraphrase of the context — grounded." },
+
+  { "id": "cal-004", "human_label": 1,
+    "context": "A covered entity must designate a privacy official responsible for its policies and procedures.",
+    "output": "Yes, a covered entity must designate a privacy official (45 CFR 164.530).",
+    "note": "Grounded and cited." },
+
+  { "id": "cal-005", "human_label": 1,
+    "context": "The Security Rule requires a covered entity to conduct a risk analysis of potential risks to electronic PHI.",
+    "output": "The Security Rule requires a risk analysis of risks to electronic PHI.",
+    "note": "Restates the context — grounded." },
+
+  { "id": "cal-006", "human_label": 1,
+    "context": "Business associate agreements must be in place before a business associate handles PHI.",
+    "output": "A business associate agreement must be in place before the associate handles PHI.",
+    "note": "Grounded." },
+
+  { "id": "cal-007", "human_label": 0,
+    "context": "A covered entity must retain required documentation for six years.",
+    "output": "Civil penalties can reach 1.5 million dollars per violation category each year.",
+    "note": "Penalty figure is not in the context — unsupported / hallucinated." },
+
+  { "id": "cal-008", "human_label": 0,
+    "context": "Following discovery of a breach, individuals must be notified within 60 days.",
+    "output": "Encryption of all stored data is mandatory under this provision.",
+    "note": "Adds an encryption mandate absent from the context." },
+
+  { "id": "cal-009", "human_label": 0,
+    "context": "The minimum necessary standard limits PHI to the minimum needed.",
+    "output": "Patients may sue providers directly for damages under this rule.",
+    "note": "Private right of action is not in the context (and is false) — ungrounded." },
+
+  { "id": "cal-010", "human_label": 0,
+    "context": "A covered entity must designate a privacy official.",
+    "output": "The documentation retention period is ten years from creation.",
+    "note": "Unrelated, unsupported claim — ungrounded." },
+
+  { "id": "cal-011", "human_label": 0,
+    "context": "The Security Rule requires administrative, physical, and technical safeguards.",
+    "output": "A specific brand of antivirus software is required for compliance.",
+    "note": "Fabricated specific requirement not in the context." },
+
+  { "id": "cal-012", "human_label": 0,
+    "context": "Breach notification to affected individuals must occur no later than 60 days of discovery.",
+    "output": "Notification to affected individuals must occur within 30 days of discovery.",
+    "note": "Subtle contradiction (30 vs 60 days). A simple lexical judge may miss this — a known hard case; spot-check by hand." }
+]
