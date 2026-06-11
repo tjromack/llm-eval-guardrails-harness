@@ -1,0 +1,18 @@
+# Web / serving
+fastapi>=0.110
+uvicorn[standard]>=0.29
+jinja2>=3.1
+python-multipart>=0.0.9
+
+# Target adapters (HTTP) + test client
+httpx>=0.27
+
+# Config
+python-dotenv>=1.0
+
+# LLM judge (Phase 5). Local-model path via Ollama uses httpx, no extra dep.
+anthropic>=0.40
+
+# Dev / tooling
+pytest>=8.0
+ruff>=0.4

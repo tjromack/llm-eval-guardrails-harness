@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Virtualenv
+.venv/
+venv/
+
+# Environment / secrets
+.env
+
+# Local database + run artifacts (runs are reproducible via `make reset`)
+*.db
+*.sqlite
+*.sqlite3
+data/harness.db
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

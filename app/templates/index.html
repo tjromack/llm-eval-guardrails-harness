@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="panel">
+    <h2>Scaffold is live</h2>
+    <p class="muted">
+      Phase 0 of the build. The app boots, exposes <code>/health</code>, and renders this shell.
+      Suites, the runner, scoring, the judge, and the dashboard land in later phases (see
+      <code>TODO.md</code>).
+    </p>
+  </div>
+
+  <div class="panel">
+    <h2>How it's wired</h2>
+    <ul class="muted">
+      <li>Target reached only through a <strong>thin adapter</strong> — first one is the RAG copilot.</li>
+      <li><strong>Deterministic checks</strong> carry the load; the <strong>LLM judge</strong> is calibrated and versioned.</li>
+      <li><strong>Guardrail / red-team</strong> cases (abstention, refusal, PII-leak) are first-class.</li>
+    </ul>
+    <p class="muted">Health JSON: <a href="/health">/health</a></p>
+  </div>
+{% endblock %}
