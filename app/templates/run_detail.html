@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+  <p><a href="/">← dashboard</a></p>
+
+  <div class="panel">
+    <h2>Run #{{ rep.run.id }} — {{ rep.run.suite_name }}</h2>
+    <div class="row">
+      <div>
+        <div class="muted">target</div>
+        <div><code>{{ rep.run.target }}</code> · version <code>{{ rep.run.target_version }}</code></div>
+      </div>
+      <div>
+        <div class="muted">cases passed</div>
+        <div class="num">{{ rep.n_cases_passed }}/{{ rep.n_cases }} ({{ rep.case_pass_rate | pct }})</div>
+      </div>
+      <div>
+        <div class="muted">threshold {{ rep.threshold | pct }}</div>
+        <div>{% if rep.meets_threshold %}<span class="badge pass">PASS</span>
+             {% else %}<span class="badge fail">FAIL</span>{% endif %}</div>
+      </div>
+      <div>
+        <div class="muted">judge</div>
+        <div class="num">{{ rep.run.judge_model or "—" }} · rubric {{ rep.run.rubric_version or "—" }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="panel">
+      <h2>By category</h2>
+      <table><tbody>
+      {% for cat, t in rep.by_category.items() %}
+        <tr><td>{{ cat }}</td><td class="num">{{ t.passed }}/{{ t.total }}</td>
+            <td class="num">{{ t.rate | pct }}</td></tr>
+      {% endfor %}
+      </tbody></table>
+    </div>
+    <div class="panel">
+      <h2>By layer</h2>
+      <table><tbody>
+      {% for lay, t in rep.by_layer.items() %}
+        <tr><td class="tag-{{ lay }}">{{ lay }}</td><td class="num">{{ t.passed }}/{{ t.total }}</td>
+            <td class="num">{{ t.rate | pct }}</td></tr>
+      {% endfor %}
+      </tbody></table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Cases</h2>
+    {% for case in rep.cases %}
+      <div style="margin:10px 0 4px;">
+        {% if case.passed %}<span class="badge pass">PASS</span>
+        {% else %}<span class="badge fail">FAIL</span>{% endif %}
+        <strong>{{ case.case_id }}</strong>
+        <span class="pill">{{ case.category }}</span>
+        <span class="muted num">{{ case.n_passed }}/{{ case.n_checks }} checks</span>
+      </div>
+      <table><tbody>
+      {% for chk in case.checks %}
+        <tr>
+          <td style="width:60px;">{% if chk.passed %}<span class="ok">✓ pass</span>
+              {% else %}<span class="bad">✗ fail</span>{% endif %}</td>
+          <td style="width:90px;"><span class="badge layer tag-{{ chk.layer }}">{{ chk.layer }}</span></td>
+          <td style="width:170px;"><code>{{ chk.check_type }}</code></td>
+          <td style="width:54px;" class="num">{% if chk.score is not none %}{{ "%.2f"|format(chk.score) }}{% else %}—{% endif %}</td>
+          <td class="muted">{{ chk.reason }}</td>
+        </tr>
+      {% endfor %}
+      </tbody></table>
+    {% endfor %}
+  </div>
+{% endblock %}

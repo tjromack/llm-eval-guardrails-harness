@@ -200,3 +200,25 @@ These are the script for "why did you build it this way?" Add an entry on every 
   calibration requires a real provider. Strict-JSON parsing can reject an otherwise-fine answer that
   formats badly; one embedded-object fallback softens this, nothing looser.
 - Revisit if: judges need multi-criterion single-call scoring, ensembling, or token/cost budgeting.
+
+## 015. Reporting: case passes only if all checks pass; regression = pass→fail or score drop
+- Phase: 6
+- Decision: A *case* passes only if **all** its checks pass (rule + judge); a judge error counts as a
+  fail, never a silent pass. The headline metric is **case pass rate** vs the suite's
+  `suite_pass_rate` threshold. `compare` matches checks across two runs by `(case, check, layer)`;
+  a **regression** is a check going pass→fail OR a judge score dropping ≥ `REGRESSION_EPS` (0.05),
+  an **improvement** is fail→pass. A run is **flagged** if anything regressed, the case pass rate
+  fell more than EPS, or the candidate dropped below threshold while the baseline met it. Scoring is
+  applied lazily on first report (`ensure_scored`) so a captured run is viewable without a manual
+  scoring step.
+- Alternatives considered: average score as the headline; per-check pass rate as the gate; compare
+  only aggregate numbers (not per-check); require an explicit scoring step before reporting.
+- Why: "All checks must pass" matches how guardrails actually work — a case that leaks PII but nails
+  format is not a pass. Matching per-check across runs is what turns "it got worse" into "*this* got
+  worse, here," which is the whole point (Decision 006). Counting a judge error as a fail keeps a
+  flaky judge from masking problems. Lazy scoring keeps the demo one-command without re-calling the
+  target (Decision 012).
+- Tradeoff accepted: an all-or-nothing case verdict hides partial progress (5/6 checks fixed still
+  reads FAIL) — the per-check view and per-layer tallies expose that detail. A fixed EPS is a blunt
+  threshold; per-check thresholds are a later refinement.
+- Revisit if: suites need weighted/criticality-tiered checks or per-metric regression thresholds.

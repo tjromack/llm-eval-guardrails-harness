@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+  <p><a href="/">← dashboard</a></p>
+
+  {% if cmp.flagged %}
+    <div class="banner flag">⚠ REGRESSION FLAGGED — {{ cmp.regressions | length }} check(s) regressed
+      · case pass rate {{ cmp.base.case_pass_rate | pct }} → {{ cmp.cand.case_pass_rate | pct }}
+      ({{ "%+.0f"|format(cmp.case_pass_rate_delta * 100) }} pts)</div>
+  {% else %}
+    <div class="banner clear">✓ No regression — candidate holds vs. baseline
+      ({{ cmp.base.case_pass_rate | pct }} → {{ cmp.cand.case_pass_rate | pct }})</div>
+  {% endif %}
+
+  <div class="row">
+    <div class="panel">
+      <h2>Baseline</h2>
+      <p>Run <a href="/runs/{{ cmp.base.run.id }}">#{{ cmp.base.run.id }}</a> ·
+        <code>{{ cmp.base.run.target_version }}</code></p>
+      <p class="num">cases {{ cmp.base.n_cases_passed }}/{{ cmp.base.n_cases }}
+        ({{ cmp.base.case_pass_rate | pct }})
+        {% if cmp.base.meets_threshold %}<span class="badge pass">≥thr</span>
+        {% else %}<span class="badge fail">&lt;thr</span>{% endif %}</p>
+    </div>
+    <div class="panel">
+      <h2>Candidate</h2>
+      <p>Run <a href="/runs/{{ cmp.cand.run.id }}">#{{ cmp.cand.run.id }}</a> ·
+        <code>{{ cmp.cand.run.target_version }}</code></p>
+      <p class="num">cases {{ cmp.cand.n_cases_passed }}/{{ cmp.cand.n_cases }}
+        ({{ cmp.cand.case_pass_rate | pct }})
+        {% if cmp.cand.meets_threshold %}<span class="badge pass">≥thr</span>
+        {% else %}<span class="badge fail">&lt;thr</span>{% endif %}</p>
+    </div>
+  </div>
+
+  {% if cmp.regressions %}
+  <div class="panel">
+    <h2 class="bad">Regressions ({{ cmp.regressions | length }})</h2>
+    <table>
+      <thead><tr><th>Case</th><th>Layer</th><th>Check</th><th>Pass</th><th>Score</th></tr></thead>
+      <tbody>
+      {% for d in cmp.regressions %}
+        <tr>
+          <td>{{ d.case_id }}</td>
+          <td><span class="badge layer tag-{{ d.layer }}">{{ d.layer }}</span></td>
+          <td><code>{{ d.check_type }}</code></td>
+          <td><span class="ok">{{ d.base_passed }}</span> → <span class="bad">{{ d.cand_passed }}</span></td>
+          <td class="num">{% if d.base_score is not none %}{{ "%.2f"|format(d.base_score) }}{% else %}—{% endif %}
+              → {% if d.cand_score is not none %}{{ "%.2f"|format(d.cand_score) }}{% else %}—{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if cmp.improvements %}
+  <div class="panel">
+    <h2 class="ok">Improvements ({{ cmp.improvements | length }})</h2>
+    <table><tbody>
+    {% for d in cmp.improvements %}
+      <tr><td>{{ d.case_id }}</td>
+          <td><span class="badge layer tag-{{ d.layer }}">{{ d.layer }}</span></td>
+          <td><code>{{ d.check_type }}</code></td></tr>
+    {% endfor %}
+    </tbody></table>
+  </div>
+  {% endif %}
+{% endblock %}

@@ -8,7 +8,12 @@ contract: read a JSON request from stdin ({"question": ...}), print a JSON reply
 It is a deliberately simple rule-based responder over a few public/synthetic
 regulatory facts. It behaves like a reasonable *baseline*: it cites sources,
 abstains on out-of-scope questions, refuses adversarial asks, and does not echo
-planted PII back. A degraded variant for the regression demo comes later.
+planted PII back.
+
+Set FAKE_RAG_MODE=degraded to simulate a worse prompt/model variant for the
+regression demo: it drops citations and answers out-of-scope questions instead
+of abstaining (a realistic "quiet break"). It still refuses adversarial asks and
+scrubs PII, so the regression is partial, not total.
 
 All content here is synthetic/public (CFR section numbers); no PHI.
 """
@@ -16,8 +21,11 @@ All content here is synthetic/public (CFR section numbers); no PHI.
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
+
+MODE = os.environ.get("FAKE_RAG_MODE", "baseline").lower()
 
 # (keywords, answer, citation) — first match wins.
 _FACTS = [
@@ -73,18 +81,38 @@ _REFUSE = (
 _PII = re.compile(r"\b\d{3}-\d{2}-\d{4}\b|\bMRN\s*\d+\b|\b\d{8}\b")
 
 
+# Degraded out-of-scope replies: it answers instead of abstaining.
+_DEGRADED_OOS = {
+    "weather": "Expect mild, sunny weather this weekend with a high near 75 degrees.",
+    "forecast": "Expect mild, sunny weather this weekend with a high near 75 degrees.",
+    "pain": "You could take ibuprofen 400 mg every six hours with food.",
+    "medication": "You could take ibuprofen 400 mg every six hours with food.",
+}
+
+
 def answer(question: str) -> dict:
     q = question.lower()
+    degraded = MODE == "degraded"
 
+    # Adversarial refusal holds in both modes.
     if any(k in q for k in _ADVERSARIAL):
         return {"output": _REFUSE, "trace": {"decision": "refuse", "citations": []}}
 
     if any(k in q for k in _OUT_OF_SCOPE):
+        if degraded:
+            reply = next(
+                (v for k, v in _DEGRADED_OOS.items() if k in q),
+                "Sure — here's a general answer outside the regulatory corpus.",
+            )
+            return {"output": reply, "trace": {"decision": "answer", "citations": []}}
         return {"output": _ABSTAIN, "trace": {"decision": "abstain", "citations": []}}
 
     for keywords, text, citation in _FACTS:
         if any(k in q for k in keywords):
             # If the user planted PII in the prompt, answer WITHOUT echoing it.
+            if degraded:
+                # The quiet break: correct fact, but the citation is dropped.
+                return {"output": text, "trace": {"decision": "answer", "citations": []}}
             out = f"{text} (See {citation}.)"
             return {
                 "output": out,

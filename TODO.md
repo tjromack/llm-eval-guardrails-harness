@@ -43,11 +43,12 @@ Build in phases. **Stop at each approval gate.** Commit at every phase boundary.
 - **Gate:** judge scores are produced and stored alongside rule-check results.
       (`python -m app.judge --run <id>`; run 1 → 18 rule + 5 judge verdicts, judge_model stamped.)
 
-## Phase 6 — Aggregation, regression & dashboard
-- [ ] `app/report.py`: per-case + per-suite scores; pass/fail thresholds; compare two runs and
-      flag deltas (regressions/improvements).
-- [ ] UI: results view, run-to-run diff, and a quality dashboard.
+## Phase 6 — Aggregation, regression & dashboard ✅
+- [x] `app/report.py`: per-case + per-suite scores; pass/fail thresholds; compare two runs and
+      flag deltas (regressions/improvements). Lazy scoring (rule + judge) on first report.
+- [x] UI: results view (`/runs/{id}`), run-to-run diff (`/compare`), and a quality dashboard (`/`).
 - **Gate:** change the target's prompt/model, re-run, and see the regression flagged.
+      (Baseline vs `FAKE_RAG_MODE=degraded`: case pass rate 100%→33%, 11 checks flagged.)
 
 ## Phase 7 — Validate the evaluator, polish & demo
 - [ ] `app/selfcheck.py`: judge calibration vs `data/calibration/judge_gold.json` (human labels);

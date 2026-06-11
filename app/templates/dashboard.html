@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="panel">
+    <h2>Quality dashboard</h2>
+    {% if reports %}
+    <table>
+      <thead>
+        <tr><th>Run</th><th>Target version</th><th>Cases</th><th>Pass rate</th>
+            <th>Threshold</th><th>Judge</th><th>Started</th></tr>
+      </thead>
+      <tbody>
+      {% for r in reports %}
+        <tr>
+          <td><a href="/runs/{{ r.run.id }}">#{{ r.run.id }}</a></td>
+          <td><code>{{ r.run.target_version }}</code></td>
+          <td class="num">{{ r.n_cases_passed }}/{{ r.n_cases }}</td>
+          <td class="num">{{ r.case_pass_rate | pct }}</td>
+          <td>
+            {% if r.meets_threshold %}<span class="badge pass">≥ {{ r.threshold | pct }}</span>
+            {% else %}<span class="badge fail">&lt; {{ r.threshold | pct }}</span>{% endif %}
+          </td>
+          <td class="muted">{{ r.run.judge_model or "—" }}</td>
+          <td class="muted">{{ r.run.started_at }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="muted">No runs yet. Run <code>make eval-run</code> to score the seeded suite.</p>
+    {% endif %}
+  </div>
+
+  {% if reports | length >= 2 %}
+  <div class="panel">
+    <h2>Compare two runs (flag regressions)</h2>
+    <form class="inline" action="/compare" method="get">
+      <label class="muted">baseline</label>
+      <select name="base">
+        {% for r in reports %}<option value="{{ r.run.id }}">#{{ r.run.id }} · {{ r.run.target_version }}</option>{% endfor %}
+      </select>
+      <label class="muted">candidate</label>
+      <select name="candidate">
+        {% for r in reports %}<option value="{{ r.run.id }}" {% if loop.first %}selected{% endif %}>#{{ r.run.id }} · {{ r.run.target_version }}</option>{% endfor %}
+      </select>
+      <button type="submit">Compare</button>
+    </form>
+  </div>
+  {% endif %}
+{% endblock %}
