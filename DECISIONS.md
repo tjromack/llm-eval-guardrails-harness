@@ -139,3 +139,21 @@ These are the script for "why did you build it this way?" Add an entry on every 
 - Tradeoff accepted: the stand-in is not the real copilot — it proves the *harness* works, not the
   copilot's quality. The trace shape is loosely typed (a dict) rather than a strict schema.
 - Revisit if: a target needs streaming, auth, or a richer typed trace → extend TargetResult.
+
+## 012. Runner persists raw results first; scoring is a separate, re-runnable pass
+- Phase: 3
+- Decision: The runner calls the target and writes the **raw** result (output, trace, latency,
+  error) plus the run metadata (suite, target, target_version, rubric_version) to SQLite. It does
+  **no scoring**. Checks (Phase 4) and the judge (Phase 5) read these stored rows in a later pass.
+  Storage lives in `app/store.py`; runs have integer ids so any two compare directly (Decision 006).
+- Alternatives considered: score inline while running (one pass, target call + checks + judge
+  together); store only pass/fail, not raw output.
+- Why: Separating capture from scoring means a run can be **re-scored without re-calling the
+  target** — re-run the judge after a rubric change, fix a buggy check and re-grade, or diff two
+  stored runs — all from persisted raw output. It also keeps each module single-purpose and makes
+  target latency independent of (potentially slow) judge calls. Keeping raw output is what makes
+  the regression story auditable rather than just a number.
+- Tradeoff accepted: raw outputs take more space than a verdict, and scoring is a second step
+  rather than free during the run. Both are fine at portfolio scale.
+- Revisit if: suites get large enough that storing full outputs is costly → store hashes/excerpts
+  with opt-in full capture.

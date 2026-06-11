@@ -23,10 +23,10 @@ Build in phases. **Stop at each approval gate.** Commit at every phase boundary.
 - **Gate:** the harness can call the RAG copilot for a case and capture its output.
       (`python -m app.adapters.rag_copilot "<question>"`; bundled synthetic stand-in target.)
 
-## Phase 3 — Runner
-- [ ] `app/runner.py`: execute a suite over the configured target, persisting each output/trace
-      and the target version.
-- [ ] `make eval-run` runs the suite end to end.
+## Phase 3 — Runner ✅
+- [x] `app/runner.py`: execute a suite over the configured target, persisting each output/trace
+      and the target version. (`app/store.py` owns the SQLite schema + access.)
+- [x] `make eval-run` runs the suite end to end.
 - **Gate:** a full suite runs against the target and stores raw results.
 
 ## Phase 4 — Deterministic rule checks
