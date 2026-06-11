@@ -117,3 +117,25 @@ These are the script for "why did you build it this way?" Add an entry on every 
 - Tradeoff accepted: deterministic abstention detection can be fooled by unusual phrasing — the
   marker set is part of the harness and itself fixture-tested in `selfcheck` (Phase 7).
 - Revisit if: targets phrase abstention in ways the marker check misses → add a judged fallback.
+
+## 011. Adapter interface: errors-as-results, name registry, two transports, synthetic stand-in
+- Phase: 2
+- Decision: The adapter contract is `run(case_input) -> TargetResult(output, trace, target_version,
+  latency_ms, error)`. Adapters **never raise into the runner** — transport/target failures come
+  back as a `TargetResult` with `error` set. Targets are resolved by name through a registry
+  (`get_adapter(suite.target)`), so the runner never imports a concrete adapter. The RAG-copilot
+  adapter supports two transports chosen in `.env`: `http` (POST JSON) and `command` (subprocess,
+  JSON on stdin). A bundled **synthetic stand-in** (`tools/fake_rag_copilot.py`) is the out-of-box
+  target so the demo runs cold.
+- Alternatives considered: let adapters raise and have the runner catch; resolve adapters by
+  importing a module path; support only HTTP; require the real copilot to be running for any demo.
+- Why: Errors-as-results means one unreachable target or one malformed case degrades to a recorded
+  failure instead of aborting a whole suite — exactly what an eval harness needs. A name registry
+  keeps the runner target-agnostic (Decision 002) and makes "write an adapter, the harness doesn't
+  change" literally true. Two transports cover the common ways a copilot is deployed (a service vs.
+  a CLI/script) without assuming either. The synthetic stand-in keeps the seam demoable and the
+  tests hermetic without real data or a live service (Decision 007); a degraded variant of it later
+  drives the regression demo.
+- Tradeoff accepted: the stand-in is not the real copilot — it proves the *harness* works, not the
+  copilot's quality. The trace shape is loosely typed (a dict) rather than a strict schema.
+- Revisit if: a target needs streaming, auth, or a richer typed trace → extend TargetResult.

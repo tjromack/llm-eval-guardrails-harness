@@ -17,10 +17,11 @@ Build in phases. **Stop at each approval gate.** Commit at every phase boundary.
       out-of-scope cases that must abstain and at least one PII-leak probe.
 - **Gate:** suite format reviewed; sample suite inspectable. (`python -m app.suite` inspects it.)
 
-## Phase 2 — Target adapter interface (RAG copilot first)
-- [ ] `app/adapters/`: a thin interface — given a case input, return target output + trace.
-- [ ] Implement the RAG copilot adapter (configurable endpoint/command in `.env`).
+## Phase 2 — Target adapter interface (RAG copilot first) ✅
+- [x] `app/adapters/`: a thin interface — given a case input, return target output + trace.
+- [x] Implement the RAG copilot adapter (configurable endpoint/command in `.env`).
 - **Gate:** the harness can call the RAG copilot for a case and capture its output.
+      (`python -m app.adapters.rag_copilot "<question>"`; bundled synthetic stand-in target.)
 
 ## Phase 3 — Runner
 - [ ] `app/runner.py`: execute a suite over the configured target, persisting each output/trace
