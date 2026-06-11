@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS runs (
     status         TEXT    NOT NULL DEFAULT 'running',
     n_cases        INTEGER NOT NULL DEFAULT 0,
     n_errors       INTEGER NOT NULL DEFAULT 0,
+    judge_model    TEXT,
     notes          TEXT
 );
 
@@ -84,7 +85,15 @@ def connect(db_path: str | Path | None = None) -> sqlite3.Connection:
 
 def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    _migrate(conn)
     conn.commit()
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Idempotently add columns introduced after a DB was first created."""
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(runs)").fetchall()}
+    if "judge_model" not in cols:
+        conn.execute("ALTER TABLE runs ADD COLUMN judge_model TEXT")
 
 
 # ---- writes ---------------------------------------------------------------
@@ -167,6 +176,13 @@ def add_check_result(
     return int(cur.lastrowid)
 
 
+def set_run_judge_model(conn: sqlite3.Connection, run_id: int, judge_model: str) -> None:
+    conn.execute(
+        "UPDATE runs SET judge_model = ? WHERE id = ?", (judge_model, run_id)
+    )
+    conn.commit()
+
+
 def clear_check_results(
     conn: sqlite3.Connection, run_id: int, *, layer: str | None = None
 ) -> None:
@@ -212,6 +228,7 @@ class RunRow:
     status: str
     n_cases: int
     n_errors: int
+    judge_model: str | None
     notes: str | None
 
 

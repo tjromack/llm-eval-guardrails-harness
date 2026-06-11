@@ -179,3 +179,24 @@ These are the script for "why did you build it this way?" Add an entry on every 
   and grown as gaps surface. PII patterns are tuned for synthetic identifiers, not exhaustive.
 - Revisit if: real targets phrase refusals/abstentions in ways markers miss, or a target handles
   real PII formats → add a judged fallback and/or an NER-backed PII check.
+
+## 014. Judge: provider-abstracted, strict-JSON, versioned; offline `mock` stand-in
+- Phase: 5
+- Decision: `app/judge.py` scores only the qualitative criteria (groundedness, correctness) via a
+  `JudgeProvider` abstraction (`anthropic` | `ollama` | `mock`). The model must return strict JSON
+  `{"score", "reason"}` — a non-JSON reply is a *recorded error*, never a guessed score. Every score
+  carries the judge model id + `RUBRIC_VERSION`, and the model id is stamped on the run. Verdicts go
+  to the shared `check_results` table with `layer='judge'`. A `mock` heuristic provider lets the
+  pipeline run offline (tests/CI/demo) and is explicitly labeled "not calibrated".
+- Alternatives considered: hard-wire the Anthropic SDK; accept free-text judge output and regex a
+  number out; let a parse/transport failure raise and abort scoring; reuse the synthetic target as
+  the offline judge.
+- Why: The provider seam is what makes "judge runs locally for sensitive targets" real (Decision 007)
+  and keeps tests network-free. Strict JSON + recorded parse errors means a flaky judge surfaces as
+  an error rather than a silently-wrong score — essential for a tool whose credibility is the point
+  (Decision 004). Stamping model + rubric on every score makes calibration (Phase 7) and run-to-run
+  comparison meaningful. One `check_results` table for both layers lets Phase 6 aggregate uniformly.
+- Tradeoff accepted: the `mock` judge is a heuristic, useful only for plumbing/demo — real
+  calibration requires a real provider. Strict-JSON parsing can reject an otherwise-fine answer that
+  formats badly; one embedded-object fallback softens this, nothing looser.
+- Revisit if: judges need multi-criterion single-call scoring, ensembling, or token/cost budgeting.

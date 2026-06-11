@@ -36,10 +36,12 @@ Build in phases. **Stop at each approval gate.** Commit at every phase boundary.
 - **Gate:** rule checks correctly pass/fail on the sample suite, including guardrail cases.
       (`python -m app.checks --run <id>`; 18/18 pass on baseline; fail-side covered by tests.)
 
-## Phase 5 — LLM-as-judge
-- [ ] `app/judge.py`: judge qualitative properties (groundedness, correctness vs reference) with a
-      **versioned rubric**; output strict JSON; record judge model + rubric version.
+## Phase 5 — LLM-as-judge ✅
+- [x] `app/judge.py`: judge qualitative properties (groundedness, correctness vs reference) with a
+      **versioned rubric** (`g1`); strict-JSON output; record judge model + rubric version.
+      Provider-abstracted (anthropic | ollama | mock); offline `mock` for tests/CI/demo.
 - **Gate:** judge scores are produced and stored alongside rule-check results.
+      (`python -m app.judge --run <id>`; run 1 → 18 rule + 5 judge verdicts, judge_model stamped.)
 
 ## Phase 6 — Aggregation, regression & dashboard
 - [ ] `app/report.py`: per-case + per-suite scores; pass/fail thresholds; compare two runs and
