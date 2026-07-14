@@ -12,6 +12,7 @@ python-dotenv>=1.0
 
 # LLM judge (Phase 5). Local-model path via Ollama uses httpx, no extra dep.
 anthropic>=0.40
+truststore>=0.9      # OS cert store — live calls work behind a TLS-intercepting proxy
 
 # Dev / tooling
 pytest>=8.0

@@ -25,9 +25,15 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
+import truststore
+
 from app import store
 from app.config import settings
 from app.suite import Suite, load_suite
+
+# Use the OS certificate store so the live Anthropic judge works behind a TLS-intercepting
+# proxy / custom CA. Injected at import time. (Consistent with the RAG copilot + console.)
+truststore.inject_into_ssl()
 
 RUBRIC_VERSION = "g1"
 
