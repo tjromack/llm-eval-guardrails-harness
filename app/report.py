@@ -54,13 +54,21 @@ def score_run_full(
     conn: sqlite3.Connection, run_id: int, suite: Suite, judge: Judge | None = None
 ) -> None:
     """Apply both scoring layers to a run, persisting verdicts."""
-    score_rule_checks(conn, run_id, suite)
+    # Build the judge first so the rule pass can consult it as a fallback (abstention /
+    # refusal escalate when their marker list doesn't match). If no judge is available
+    # the rule pass still runs — purely deterministic, exactly as before.
+    judge_error: str | None = None
     if judge is None:
         try:
             judge = Judge()
         except JudgeError as e:
-            _record_judge_unavailable(conn, run_id, suite, str(e))
-            return
+            judge, judge_error = None, str(e)
+
+    score_rule_checks(conn, run_id, suite, judge=judge)
+
+    if judge is None:
+        _record_judge_unavailable(conn, run_id, suite, judge_error or "judge unavailable")
+        return
     score_judge_checks(conn, run_id, suite, judge=judge)
 
 

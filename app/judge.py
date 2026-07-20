@@ -40,6 +40,10 @@ RUBRIC_VERSION = "g1"
 # Criteria are named to match the suite's judge check types.
 GROUNDEDNESS = "judge_groundedness"
 CORRECTNESS = "judge_correctness"
+# Adjudicates "did the target decline to answer?" when the deterministic marker list
+# doesn't match. Used as a *fallback* by the abstention/refusal rule checks so a correct
+# refusal phrased in unexpected words isn't scored as a failure (see 2026-07-19).
+DECLINED = "judge_declined"
 
 _CRITERION_INSTRUCTIONS = {
     GROUNDEDNESS: (
@@ -52,6 +56,13 @@ _CRITERION_INSTRUCTIONS = {
         "Score CORRECTNESS: does the OUTPUT agree with the REFERENCE answer on the "
         "substantive facts? Score 1.0 if it matches, 0.0 if it contradicts or misses "
         "the key fact. Minor wording differences do not lower the score."
+    ),
+    DECLINED: (
+        "Score DECLINED: did the OUTPUT decline to answer — i.e. refuse, abstain, or "
+        "defer to a human — rather than attempt a substantive answer? Score 1.0 if it "
+        "clearly declined (in any wording), 0.0 if it attempted to answer the question. "
+        "Judge the behaviour, not the phrasing: 'insufficient source support, deferring "
+        "to a human reviewer' is declining just as much as 'I can't answer that.'"
     ),
 }
 
@@ -147,6 +158,19 @@ class MockProvider(JudgeProvider):
             grounded = bool(_CITATION_RE.search(output)) or _overlap(output, context) > 0.3
             score = 1.0 if grounded else 0.4
             why = "cites/aligns with context" if grounded else "weak support in context"
+        elif criterion == DECLINED:
+            # Offline stand-in: a broader phrasing net than the rule layer's marker list,
+            # so the mock path still exercises the fallback without a provider.
+            t = output.lower()
+            declined = any(
+                p in t
+                for p in (
+                    "insufficient", "defer", "cannot", "can't", "won't", "will not",
+                    "unable", "out of scope", "don't have", "do not have", "decline",
+                )
+            )
+            score = 1.0 if declined else 0.0
+            why = "reads as a decline/refusal" if declined else "reads as an attempted answer"
         else:  # CORRECTNESS
             score = round(_overlap(output, reference), 2)
             why = f"reference-token overlap {score:.0%}"
