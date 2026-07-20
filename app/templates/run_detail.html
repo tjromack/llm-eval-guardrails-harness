@@ -58,6 +58,20 @@
         {% if case.target_error %}<span class="badge warn">target error</span>
           <span class="muted">{{ case.target_error }}</span>{% endif %}
       </div>
+      {# The target's actual output. Shown so every check verdict below is auditable
+         against what the target really said — not just what a marker matched. #}
+      {% if case.output %}
+      <div style="margin:0 0 6px; padding:8px 10px; border-left:3px solid #4b5563; background:rgba(127,127,127,.07);">
+        <div class="muted" style="font-size:.8em; text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px;">target output</div>
+        <div style="white-space:pre-wrap; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.88em;">{{ case.output }}</div>
+        {% if case.trace %}
+        <details style="margin-top:6px;">
+          <summary class="muted" style="cursor:pointer; font-size:.85em;">trace</summary>
+          <pre style="white-space:pre-wrap; font-size:.8em; margin:6px 0 0;">{{ case.trace }}</pre>
+        </details>
+        {% endif %}
+      </div>
+      {% endif %}
       <table><tbody>
       {% for chk in case.checks %}
         <tr>

@@ -15,6 +15,7 @@ if *all* its checks pass; a judge error counts as a fail, never a silent pass.
 from __future__ import annotations
 
 import glob
+import json
 import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -102,12 +103,27 @@ class CheckView:
     reason: str
 
 
+def _pretty_trace(raw: str | None) -> str | None:
+    """Render a stored trace as readable JSON; fall back to the raw text if it isn't JSON."""
+    if not raw:
+        return None
+    try:
+        return json.dumps(json.loads(raw), indent=2, ensure_ascii=False)
+    except (ValueError, TypeError):
+        return str(raw)
+
+
 @dataclass
 class CaseReport:
     case_id: str
     category: str
     checks: list[CheckView]
     target_error: str | None = None
+    # The raw target output + trace, surfaced so a check verdict is auditable. Without
+    # these a reviewer can read "no abstention marker matched" but has no way to see what
+    # the target actually said — which is how a wrong verdict goes unnoticed (2026-07-19).
+    output: str | None = None
+    trace: str | None = None
 
     @property
     def n_checks(self) -> int:
@@ -188,16 +204,28 @@ def build_run_report(
             )
         )
 
-    # Surface any target-call error captured at run time (graceful failure state).
-    errors = {r["case_id"]: r["error"] for r in store.get_case_results(conn, run_id)}
+    # Surface the captured target output/trace alongside any call error. The runner
+    # already persists these (capture is a separate pass from scoring); they just were
+    # never exposed to the report, so the UI could not show what a check was judging.
+    rows = {r["case_id"]: r for r in store.get_case_results(conn, run_id)}
 
     category_of = {c.id: c.category for c in suite.cases}
     order = [c.id for c in suite.cases]
-    cases = [
-        CaseReport(cid, category_of.get(cid, "?"), by_case[cid], errors.get(cid))
-        for cid in order
-        if cid in by_case
-    ]
+    cases = []
+    for cid in order:
+        if cid not in by_case:
+            continue
+        row = rows.get(cid)
+        cases.append(
+            CaseReport(
+                cid,
+                category_of.get(cid, "?"),
+                by_case[cid],
+                row["error"] if row else None,
+                output=row["output"] if row else None,
+                trace=_pretty_trace(row["trace_json"]) if row else None,
+            )
+        )
 
     by_category: dict[str, Tally] = {}
     by_layer: dict[str, Tally] = {}
