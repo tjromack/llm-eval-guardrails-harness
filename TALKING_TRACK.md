@@ -12,7 +12,7 @@
   layers (deterministic checks + LLM-judge) → report aggregates and compares runs.
 - **Signature decision:** Two scoring layers, and capture separated from scoring — so you can
   re-score after a rubric change without re-calling the target.
-- **Eval story:** The harness validates *itself* — rule fixtures 22/22, judge agreement 0.92 vs human
+- **Eval story:** The harness validates *itself* — rule fixtures 22/22, judge agreement **12/12 (live)** vs human
   labels, and an injected regression (citations 1.00→0.00) is correctly detected.
 
 ---
@@ -71,8 +71,9 @@ The headline move: this project's `make selfcheck` turns the measurement tooling
 
 1. **Rule fixtures: 22/22** — the deterministic checks are validated on known-good/known-bad cases.
    *This gate doesn't depend on any provider — it passes every run.*
-2. **Judge agreement: 0.92** — the judge vs 12 human-labeled cases (one deliberate contradiction at
-   `cal-012` kept in to keep disagreement visible).
+2. **Judge agreement: 12/12 (live)** — the judge vs 12 human-labeled cases, including `cal-012`, a
+   deliberate contradiction kept in the set to keep disagreement visible. *(The offline mock scores
+   0.92 here — it misses `cal-012`.)*
 3. **Injected-regression detection: YES** — it intentionally drops citations (1.00 → 0.00, case pass
    100% → 33%) and confirms the harness *flags* it. *Also provider-independent — passes every run.*
 
@@ -92,10 +93,12 @@ only your *judgment* of it.
 
 ## Honest weakness (say it before they do)
 
-- The **headline 0.92 judge agreement is from the offline mock heuristic**, not a calibrated provider,
-  and the gold set is **12 cases — directional, not statistical.** Trustworthy judge numbers need a
-  real provider + a larger human-labeled set. *(But the two hard gates — rule fixtures 22/22 and
-  injected-regression detection — don't depend on a provider and pass every run. Lead with those.)*
+- ⚠️ **UPDATED by live runs (2026-07-19/20).** The 0.92 figure was the *offline mock*; with a **live**
+  judge, agreement is **12/12**. The remaining caveat is the sample: **12 cases — directional, not
+  statistical.** The weaknesses actually found by *operating* it are better ones: its abstention check
+  was **11 hardcoded substrings**, so a correct abstention worded differently scored as a failure
+  (fixed 07-20 with a rules-first / judge-fallback hybrid); and **judge JSON errors are still counted
+  identically to quality failures**, so instrument flakiness pollutes the pass rate.
 
 ---
 
