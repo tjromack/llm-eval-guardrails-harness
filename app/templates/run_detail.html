@@ -83,7 +83,8 @@
           <td style="width:60px;">{% if chk.errored %}<span class="badge warn">⚠ error</span>
               {% elif chk.passed %}<span class="ok">✓ pass</span>
               {% else %}<span class="bad">✗ fail</span>{% endif %}</td>
-          <td style="width:90px;"><span class="badge layer tag-{{ chk.layer }}">{{ chk.layer }}</span></td>
+          <td style="width:90px;"><span class="badge layer tag-{{ chk.layer }}">{{ chk.layer }}</span>{% if chk.adjudicated %}
+            <span class="badge warn" title="rule check escalated: the {{ chk.decided_by }} decided this verdict">→{{ chk.decided_by }}</span>{% endif %}</td>
           <td style="width:170px;"><code>{{ chk.check_type }}</code></td>
           <td style="width:54px;" class="num">{% if chk.score is not none %}{{ "%.2f"|format(chk.score) }}{% else %}—{% endif %}</td>
           <td class="muted">{{ chk.reason }}</td>

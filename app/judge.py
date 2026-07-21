@@ -359,6 +359,7 @@ def score_run(
                 reason=f"[{res.model} {res.rubric_version}] {res.reason}",
                 # Persist the error so the report can separate "no verdict" from "failed".
                 error=res.error,
+                decided_by="judge",
             )
 
     store.set_run_judge_model(conn, run_id, judge.model)

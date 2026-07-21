@@ -123,10 +123,19 @@ class CheckView:
     # JSON). That is an *evaluation* failure, not a target failure, and the two must
     # not be counted together (2026-07-20).
     error: str | None = None
+    # Which mechanism actually decided. Usually == layer, but a hybrid abstention/refusal
+    # check that escalated is layer='rule', decided_by='judge' — worth showing, because
+    # "a rule decided this" and "a model decided this" carry different trust (2026-07-21).
+    decided_by: str | None = None
 
     @property
     def errored(self) -> bool:
         return bool(self.error)
+
+    @property
+    def adjudicated(self) -> bool:
+        """True when the verdict came from a different mechanism than its layer."""
+        return bool(self.decided_by and self.decided_by != self.layer)
 
 
 def _pretty_trace(raw: str | None) -> str | None:
@@ -273,6 +282,7 @@ def build_run_report(
                 score=r["score"],
                 reason=r["reason"] or "",
                 error=(r["error"] if "error" in r.keys() else None),
+                decided_by=(r["decided_by"] if "decided_by" in r.keys() else None),
             )
         )
 

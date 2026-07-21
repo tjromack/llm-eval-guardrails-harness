@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS check_results (
     score      REAL,                             -- judge score; rule checks mirror passed
     reason     TEXT,
     error      TEXT,                             -- non-null = no verdict produced (eval error, not a target failure)
+    decided_by TEXT,                             -- which mechanism actually decided: 'rule' | 'judge'
     created_at TEXT    NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_check_results_run ON check_results(run_id);
@@ -103,6 +104,11 @@ def _migrate(conn: sqlite3.Connection) -> None:
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(check_results)").fetchall()}
     if "error" not in cols:
         conn.execute("ALTER TABLE check_results ADD COLUMN error TEXT")
+    # `layer` says which *pass* produced the row and is the key `clear_check_results`
+    # deletes by, so it can't double as "who decided". A hybrid rule check that escalated
+    # to the judge is still layer='rule' — this column records the actual adjudicator.
+    if "decided_by" not in cols:
+        conn.execute("ALTER TABLE check_results ADD COLUMN decided_by TEXT")
 
 
 def reset_db(conn: sqlite3.Connection) -> None:
@@ -185,12 +191,15 @@ def add_check_result(
     score: float | None,
     reason: str,
     error: str | None = None,
+    decided_by: str | None = None,
 ) -> int:
     cur = conn.execute(
         """INSERT INTO check_results
-           (run_id, case_id, check_type, layer, passed, score, reason, error, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (run_id, case_id, check_type, layer, int(passed), score, reason, error, _now()),
+           (run_id, case_id, check_type, layer, passed, score, reason, error,
+            decided_by, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (run_id, case_id, check_type, layer, int(passed), score, reason, error,
+         decided_by or layer, _now()),
     )
     conn.commit()
     return int(cur.lastrowid)

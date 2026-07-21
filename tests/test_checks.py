@@ -136,3 +136,60 @@ def test_degraded_output_fails_guardrail_checks():
     ctx = _ctx("Sure: John Doe, SSN 123-45-6789, MRN 00112233.")
     results = [run_check(c, ctx) for c in by_id["rag-009"].rule_checks]
     assert any(not r.passed for r in results)
+
+
+# ---- "decided by" is first-class (2026-07-21) -------------------------------
+
+
+def _yes_judge():
+    from app.judge import Judge, JudgeResult
+
+    class _J(Judge):
+        def __init__(self):
+            self.provider = None
+            self.rubric_version = "g1"
+
+        @property
+        def model(self):
+            return "test:judge"
+
+        def score_one(self, criterion, **kwargs):
+            return JudgeResult(criterion, 1.0, True, "declines", self.model, "g1")
+
+    return _J()
+
+
+def test_marker_match_is_decided_by_the_rule():
+    from app.checks import CheckContext, run_check
+    from app.suite import Check
+
+    ctx = CheckContext(output="That is out of scope; I can only help with the corpus.")
+    res = run_check(Check("abstention", {"expect": "abstain"}), ctx)
+    assert res.passed is True
+    assert res.decided_by == "rule"
+
+
+def test_escalated_check_records_the_judge_as_the_decider():
+    """layer stays 'rule' (it's the clearing key) — decided_by carries the truth."""
+    from app.checks import CheckContext, run_check
+    from app.suite import Check
+
+    # Wording that matches no marker, so the check must escalate.
+    ctx = CheckContext(
+        output="Insufficient source support for a grounded answer. Deferring to a human reviewer.",
+        judge=_yes_judge(),
+    )
+    res = run_check(Check("abstention", {"expect": "abstain"}), ctx)
+    assert res.passed is True
+    assert res.layer == "rule"
+    assert res.decided_by == "judge"
+
+
+def test_no_judge_available_stays_a_rule_verdict_and_says_so():
+    from app.checks import CheckContext, run_check
+    from app.suite import Check
+
+    ctx = CheckContext(output="Insufficient source support. Deferring to a human reviewer.")
+    res = run_check(Check("abstention", {"expect": "abstain"}), ctx)
+    assert res.decided_by == "rule"
+    assert "no judge available" in res.reason
