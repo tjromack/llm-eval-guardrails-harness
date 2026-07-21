@@ -330,13 +330,19 @@ def score_run(
         trace = json.loads(row["trace_json"]) if row["trace_json"] else {}
         context = json.dumps(trace, ensure_ascii=False)
         for check in case.judge_checks:
-            res = judge.score_one(
-                check.type,
+            kwargs = dict(
                 output=row["output"] or "",
                 context=context,
                 reference=row["reference"] or "",
                 min_score=float(check.params.get("min", 0.0)),
             )
+            res = judge.score_one(check.type, **kwargs)
+            # One bounded retry on a transport/parse error. Long outputs are the usual
+            # trigger and the failure is intermittent (2026-07-20: two cases errored, one
+            # passed on a later pass), so a single retry recovers most of them. Never
+            # retry a rubric-level 'unknown_criterion' — that is deterministic.
+            if res.error and res.error != "unknown_criterion":
+                res = judge.score_one(check.type, **kwargs)
             n_checks += 1
             if res.error:
                 n_errors += 1
@@ -351,6 +357,8 @@ def score_run(
                 passed=res.passed,
                 score=res.score,
                 reason=f"[{res.model} {res.rubric_version}] {res.reason}",
+                # Persist the error so the report can separate "no verdict" from "failed".
+                error=res.error,
             )
 
     store.set_run_judge_model(conn, run_id, judge.model)

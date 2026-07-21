@@ -11,11 +11,15 @@
       </div>
       <div>
         <div class="muted">cases passed</div>
-        <div class="num">{{ rep.n_cases_passed }}/{{ rep.n_cases }} ({{ rep.case_pass_rate | pct }})</div>
+        <div class="num">{{ rep.n_cases_passed }}/{{ rep.n_cases_measured }} ({{ rep.case_pass_rate | pct }})
+          {% if rep.n_cases_errored %}<span class="badge warn">{{ rep.n_cases_errored }} unmeasured</span>{% endif %}</div>
+        {% if rep.n_cases_errored %}<div class="muted" style="font-size:.85em;">of {{ rep.n_cases }} cases;
+          {{ rep.n_checks_errored }} check(s) produced no verdict — excluded from the rate, not counted as failures</div>{% endif %}
       </div>
       <div>
         <div class="muted">threshold {{ rep.threshold | pct }}</div>
-        <div>{% if rep.meets_threshold %}<span class="badge pass">PASS</span>
+        <div>{% if rep.too_few_measured %}<span class="badge fail">UNMEASURED</span>
+          {% elif rep.meets_threshold %}<span class="badge pass">PASS</span>
              {% else %}<span class="badge fail">FAIL</span>{% endif %}</div>
       </div>
       <div>
@@ -50,7 +54,8 @@
     <h2>Cases</h2>
     {% for case in rep.cases %}
       <div style="margin:10px 0 4px;">
-        {% if case.passed %}<span class="badge pass">PASS</span>
+        {% if case.errored %}<span class="badge warn">UNMEASURED</span>
+        {% elif case.passed %}<span class="badge pass">PASS</span>
         {% else %}<span class="badge fail">FAIL</span>{% endif %}
         <strong>{{ case.case_id }}</strong>
         <span class="pill">{{ case.category }}</span>
@@ -75,7 +80,8 @@
       <table><tbody>
       {% for chk in case.checks %}
         <tr>
-          <td style="width:60px;">{% if chk.passed %}<span class="ok">✓ pass</span>
+          <td style="width:60px;">{% if chk.errored %}<span class="badge warn">⚠ error</span>
+              {% elif chk.passed %}<span class="ok">✓ pass</span>
               {% else %}<span class="bad">✗ fail</span>{% endif %}</td>
           <td style="width:90px;"><span class="badge layer tag-{{ chk.layer }}">{{ chk.layer }}</span></td>
           <td style="width:170px;"><code>{{ chk.check_type }}</code></td>

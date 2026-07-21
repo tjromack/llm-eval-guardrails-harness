@@ -9,7 +9,13 @@ This is where stored check results become a verdict you can act on:
 
 Scoring (rule + judge) is applied lazily here via `ensure_scored`, so a freshly
 captured run can be reported without a separate manual step. A case passes only
-if *all* its checks pass; a judge error counts as a fail, never a silent pass.
+if *all* its checks pass — never a silent pass.
+
+**Evaluation errors are not target failures (2026-07-21).** A check that produced no
+verdict (e.g. the judge returned unparseable JSON) is recorded with an `error` and the
+case is treated as **unmeasured**: excluded from the pass-rate denominator and reported
+separately. Folding those into failures blamed the target for the instrument's own
+flakiness — on 2026-07-20 that was 2 of 4 "failures", one of which passed on rescore.
 """
 
 from __future__ import annotations
@@ -30,6 +36,9 @@ DEFAULT_SUITE = "data/suites/rag_copilot.suite.json"
 SUITE_GLOB = "data/suites/*.suite.json"
 # A judge score drop at least this large is a regression even if still "passing".
 REGRESSION_EPS = 0.05
+# A run must have produced verdicts for at least this fraction of its cases before a
+# pass rate means anything. Below it the run reports UNMEASURED, not PASS (2026-07-21).
+MIN_MEASURED_FRACTION = 0.80
 
 
 # ---- Suite resolution ------------------------------------------------------
@@ -88,6 +97,7 @@ def _record_judge_unavailable(
                 passed=False,
                 score=None,
                 reason=f"judge unavailable: {why}",
+                error="judge_unavailable",
             )
 
 
@@ -109,6 +119,14 @@ class CheckView:
     passed: bool
     score: float | None
     reason: str
+    # Non-null = the check produced NO verdict (e.g. the judge returned unparseable
+    # JSON). That is an *evaluation* failure, not a target failure, and the two must
+    # not be counted together (2026-07-20).
+    error: str | None = None
+
+    @property
+    def errored(self) -> bool:
+        return bool(self.error)
 
 
 def _pretty_trace(raw: str | None) -> str | None:
@@ -142,7 +160,23 @@ class CaseReport:
         return sum(1 for c in self.checks if c.passed)
 
     @property
+    def n_errors(self) -> int:
+        return sum(1 for c in self.checks if c.errored)
+
+    @property
+    def errored(self) -> bool:
+        """This case could not be fully evaluated — treat as UNMEASURED, not failed."""
+        return self.n_errors > 0
+
+    @property
     def passed(self) -> bool:
+        # An errored check yields no verdict, so it can neither pass nor fail the case.
+        # Policy (2026-07-21): errored cases are excluded from the pass rate and reported
+        # separately — a suite with many judge errors isn't a passing suite, it's an
+        # *unmeasured* one, and silently counting them as failures blamed the target for
+        # the instrument's flakiness.
+        if self.errored:
+            return False
         return self.n_checks > 0 and all(c.passed for c in self.checks)
 
 
@@ -173,8 +207,24 @@ class RunReport:
         return sum(1 for c in self.cases if c.passed)
 
     @property
+    def n_cases_errored(self) -> int:
+        """Cases with at least one check that produced no verdict (evaluation error)."""
+        return sum(1 for c in self.cases if c.errored)
+
+    @property
+    def n_cases_measured(self) -> int:
+        return self.n_cases - self.n_cases_errored
+
+    @property
     def case_pass_rate(self) -> float:
-        return self.n_cases_passed / self.n_cases if self.n_cases else 1.0
+        # Denominator is MEASURED cases only. A judge that failed to answer tells you
+        # nothing about the target, so it must not drag the target's score down.
+        d = self.n_cases_measured
+        return self.n_cases_passed / d if d else 1.0
+
+    @property
+    def n_checks_errored(self) -> int:
+        return sum(c.n_errors for c in self.cases)
 
     @property
     def n_checks(self) -> int:
@@ -186,7 +236,20 @@ class RunReport:
 
     @property
     def meets_threshold(self) -> bool:
+        # Excluding unmeasured cases from the denominator protects the target from the
+        # instrument's flakiness — but it must not become a way to *pass* by not
+        # measuring. If most of the suite produced no verdict, the honest answer is
+        # "unmeasured", never "passed": 16 errors + 1 pass would otherwise read 100%.
+        if self.n_cases and self.n_cases_measured / self.n_cases < MIN_MEASURED_FRACTION:
+            return False
         return self.case_pass_rate >= self.threshold
+
+    @property
+    def too_few_measured(self) -> bool:
+        """True when so much of the suite errored that the pass rate isn't meaningful."""
+        return bool(
+            self.n_cases and self.n_cases_measured / self.n_cases < MIN_MEASURED_FRACTION
+        )
 
 
 def build_run_report(
@@ -209,6 +272,7 @@ def build_run_report(
                 passed=bool(r["passed"]),
                 score=r["score"],
                 reason=r["reason"] or "",
+                error=(r["error"] if "error" in r.keys() else None),
             )
         )
 
@@ -355,12 +419,23 @@ def compare(
 
 def _print_run(report: RunReport) -> None:
     r = report.run
-    badge = "PASS" if report.meets_threshold else "FAIL"
+    badge = "UNMEASURED" if report.too_few_measured else ("PASS" if report.meets_threshold else "FAIL")
     print(f"Run #{r.id}  target={r.target} version={r.target_version}  judge={r.judge_model}")
     print(
-        f"  cases {report.n_cases_passed}/{report.n_cases} "
+        f"  cases {report.n_cases_passed}/{report.n_cases_measured} measured "
         f"({report.case_pass_rate:.0%})  threshold {report.threshold:.0%} -> {badge}"
     )
+    if report.n_cases_errored:
+        print(
+            f"  UNMEASURED {report.n_cases_errored}/{report.n_cases} case(s), "
+            f"{report.n_checks_errored} check(s) produced no verdict "
+            f"— excluded from the rate, NOT counted as failures"
+        )
+        if report.too_few_measured:
+            print(
+                f"  !! too little of the suite was measured "
+                f"(< {MIN_MEASURED_FRACTION:.0%}) — treat this run as UNMEASURED, not passing"
+            )
     print(f"  checks {report.n_checks_passed}/{report.n_checks} passed")
     print(f"  by category: " + ", ".join(
         f"{k} {t.passed}/{t.total}" for k, t in report.by_category.items()))

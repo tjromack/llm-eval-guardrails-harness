@@ -95,3 +95,60 @@ def test_identical_runs_are_not_flagged():
     cmp = compare(conn, base_id, cand_id, suite, judge=_mock_judge())
     assert cmp.flagged is False
     assert cmp.regressions == []
+
+
+# ---- Evaluation errors are not target failures (2026-07-21) -----------------
+
+
+class _BrokenJudge(Judge):
+    """A judge that always fails to produce a verdict (e.g. unparseable JSON)."""
+
+    def __init__(self):
+        self.provider = None
+        self.rubric_version = "g1"
+
+    @property
+    def model(self) -> str:
+        return "test:broken"
+
+    def score_one(self, criterion, **kwargs):
+        from app.judge import JudgeResult
+
+        return JudgeResult(
+            criterion, None, False, "judge error: reply was not valid JSON",
+            self.model, self.rubric_version, error="JudgeError: simulated",
+        )
+
+
+def test_judge_errors_are_unmeasured_not_failures():
+    """A judge that can't answer must not be scored as the target failing.
+
+    Before this, an eval error persisted as passed=0 and was counted in the pass rate,
+    so instrument flakiness looked exactly like a quality regression.
+    """
+    conn = _mem_conn()
+    suite = load_suite(STARTER)
+    run_id = _run(conn, "baseline")
+
+    rep = build_run_report(conn, run_id, suite, judge=_BrokenJudge())
+
+    # Errors are surfaced as their own bucket...
+    assert rep.n_checks_errored > 0
+    assert rep.n_cases_errored > 0
+    # ...excluded from the denominator rather than counted as failures...
+    assert rep.n_cases_measured == rep.n_cases - rep.n_cases_errored
+    # ...and every errored check is flagged, not silently passed.
+    errored = [c for case in rep.cases for c in case.checks if c.errored]
+    assert errored and all(not c.passed and c.score is None for c in errored)
+
+
+def test_mostly_unmeasured_run_cannot_report_pass():
+    """Excluding errors must not become a way to pass by not measuring."""
+    conn = _mem_conn()
+    suite = load_suite(STARTER)
+    run_id = _run(conn, "baseline")
+
+    rep = build_run_report(conn, run_id, suite, judge=_BrokenJudge())
+
+    assert rep.too_few_measured is True
+    assert rep.meets_threshold is False

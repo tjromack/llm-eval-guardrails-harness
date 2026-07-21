@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS check_results (
     passed     INTEGER NOT NULL,                 -- 0/1
     score      REAL,                             -- judge score; rule checks mirror passed
     reason     TEXT,
+    error      TEXT,                             -- non-null = no verdict produced (eval error, not a target failure)
     created_at TEXT    NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_check_results_run ON check_results(run_id);
@@ -94,6 +95,14 @@ def _migrate(conn: sqlite3.Connection) -> None:
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(runs)").fetchall()}
     if "judge_model" not in cols:
         conn.execute("ALTER TABLE runs ADD COLUMN judge_model TEXT")
+
+    # An *evaluation* error (e.g. the judge returned unparseable JSON) is not the same
+    # thing as the target failing a check, but until this column existed both landed as
+    # `passed=0` and were counted together — so instrument flakiness inflated the target's
+    # failure count (2026-07-20). Non-null here means "this check did not produce a verdict."
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(check_results)").fetchall()}
+    if "error" not in cols:
+        conn.execute("ALTER TABLE check_results ADD COLUMN error TEXT")
 
 
 def reset_db(conn: sqlite3.Connection) -> None:
@@ -175,12 +184,13 @@ def add_check_result(
     passed: bool,
     score: float | None,
     reason: str,
+    error: str | None = None,
 ) -> int:
     cur = conn.execute(
         """INSERT INTO check_results
-           (run_id, case_id, check_type, layer, passed, score, reason, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (run_id, case_id, check_type, layer, int(passed), score, reason, _now()),
+           (run_id, case_id, check_type, layer, passed, score, reason, error, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (run_id, case_id, check_type, layer, int(passed), score, reason, error, _now()),
     )
     conn.commit()
     return int(cur.lastrowid)

@@ -13,10 +13,12 @@
         <tr>
           <td><a href="/runs/{{ r.run.id }}">#{{ r.run.id }}</a></td>
           <td><code>{{ r.run.target_version }}</code></td>
-          <td class="num">{{ r.n_cases_passed }}/{{ r.n_cases }}</td>
+          <td class="num">{{ r.n_cases_passed }}/{{ r.n_cases_measured }}{% if r.n_cases_errored %}
+            <span class="badge warn" title="produced no verdict; excluded from the rate">+{{ r.n_cases_errored }} unmeasured</span>{% endif %}</td>
           <td class="num">{{ r.case_pass_rate | pct }}</td>
           <td>
-            {% if r.meets_threshold %}<span class="badge pass">≥ {{ r.threshold | pct }}</span>
+            {% if r.too_few_measured %}<span class="badge fail">unmeasured</span>
+            {% elif r.meets_threshold %}<span class="badge pass">≥ {{ r.threshold | pct }}</span>
             {% else %}<span class="badge fail">&lt; {{ r.threshold | pct }}</span>{% endif %}
           </td>
           <td class="muted">{{ r.run.judge_model or "—" }}</td>
