@@ -55,6 +55,49 @@ def _build_judge() -> tuple[Judge, str | None]:
 # ---- 1. Judge calibration --------------------------------------------------
 
 
+# ---- 1b. Verdict/reason coherence ------------------------------------------
+#
+# A judge can return a verdict that contradicts its own written rationale. Observed
+# live on 2026-07-16: a faithfulness judge marked an explanation UNFAITHFUL while its
+# reason self-corrected mid-sentence and concluded "...so this is correct."
+# Calibration alone cannot catch this — it compares the *score* to a label and never
+# reads the prose. This check does.
+#
+# Deliberately narrow: negative phrases are tested first because the affirmative ones
+# are substrings of them ("is correct" occurs inside "is not correct"). It screens for
+# a blatant self-contradiction, and is not a general NLI check.
+
+_REASON_NEGATIVE = (
+    "not correct", "incorrect", "not supported", "unsupported", "does not match",
+    "doesn't match", "contradicts", "fails to", "is missing", "not grounded",
+)
+_REASON_AFFIRMATIVE = (
+    "so this is correct", "this is correct", "is correct", "is supported",
+    "does match", "matches the reference", "is accurate", "is grounded",
+)
+
+
+def reason_polarity(reason: str) -> int | None:
+    """+1 if the prose concludes the output was good, -1 if bad, None if unclear."""
+    t = " ".join(reason.lower().split())
+    if any(n in t for n in _REASON_NEGATIVE):
+        return -1
+    if any(a in t for a in _REASON_AFFIRMATIVE):
+        return 1
+    return None
+
+
+def verdict_contradicts_reason(score: float | None, reason: str) -> bool:
+    """True when the numeric verdict disagrees with the rationale's own conclusion."""
+    if score is None or not reason:
+        return False
+    pol = reason_polarity(reason)
+    if pol is None:
+        return False
+    verdict = 1 if score >= GROUNDED_DECISION else -1
+    return pol != verdict
+
+
 @dataclass
 class CalibrationResult:
     total: int
@@ -64,6 +107,8 @@ class CalibrationResult:
     model: str
     rubric: str
     skipped: int = 0
+    # Cases where the judge's numeric verdict contradicted its own written rationale.
+    incoherent: list[str] = field(default_factory=list)
 
     @property
     def agreement(self) -> float:
@@ -74,6 +119,7 @@ def run_calibration(judge: Judge) -> CalibrationResult:
     gold = json.loads(open(CALIBRATION_PATH, encoding="utf-8").read())
     agree = scored = skipped = 0
     disagreements: list[str] = []
+    incoherent: list[str] = []
     for case in gold:
         res = judge.score_one(
             GROUNDEDNESS, output=case["output"], context=case["context"]
@@ -82,6 +128,8 @@ def run_calibration(judge: Judge) -> CalibrationResult:
             skipped += 1
             continue
         scored += 1
+        if verdict_contradicts_reason(res.score, res.reason or ""):
+            incoherent.append(f"{case['id']} (score={res.score:.2f} vs its own reason)")
         predicted = 1 if res.score >= GROUNDED_DECISION else 0
         if predicted == case["human_label"]:
             agree += 1
@@ -92,7 +140,35 @@ def run_calibration(judge: Judge) -> CalibrationResult:
     return CalibrationResult(
         total=len(gold), scored=scored, agree=agree, disagreements=disagreements,
         model=judge.model, rubric=judge.rubric_version, skipped=skipped,
+        incoherent=incoherent,
     )
+
+
+def run_coherence_selftest() -> list[str]:
+    """Prove the contradiction detector actually fires, using planted cases.
+
+    The live judge is (rightly) expected to be coherent, so calibration alone would
+    report "0 incoherent" whether the detector worked or was broken. These planted
+    cases make the gate meaningful: a silent detector is a useless one.
+    """
+    # (label, score, reason, should_flag)
+    planted = [
+        # The real 2026-07-16 failure, abridged: verdict says unfaithful, prose concludes correct.
+        ("verbatim 07-16 self-contradiction", 0.0,
+         "The explanation states 84075 maps to clm_0060-2, but the map shows otherwise... "
+         "Wait, checking: map lists 84075->clm_0060-2, so this is correct.", True),
+        ("passing verdict, negative prose", 1.0,
+         "The output does not match the reference on the retention period.", True),
+        ("coherent pass", 1.0, "The claim is supported by the cited context.", False),
+        ("coherent fail", 0.0, "The answer is not supported by any retrieved source.", False),
+        ("ambiguous prose", 0.0, "Reviewed against the provided context.", False),
+    ]
+    failures: list[str] = []
+    for label, score, reason, should_flag in planted:
+        got = verdict_contradicts_reason(score, reason)
+        if got != should_flag:
+            failures.append(f"{label} (expected flag={should_flag}, got {got})")
+    return failures
 
 
 # ---- 2. Rule-check fixtures ------------------------------------------------
@@ -257,6 +333,7 @@ def run_regression(judge: Judge) -> RegressionResult:
 def main() -> int:
     judge, note = _build_judge()
     cal = run_calibration(judge)
+    coh_failures = run_coherence_selftest()
     fx = run_fixtures()
     reg = run_regression(judge)
 
@@ -270,6 +347,11 @@ def main() -> int:
     )
     print(f"JUDGE        agreement with human labels {cal.agreement:.2f}  "
           f"({cal.agree}/{cal.scored}; {dis})")
+    coh = ("detector OK; no self-contradictions in the gold set"
+           if not coh_failures and not cal.incoherent
+           else (f"DETECTOR BROKEN: {coh_failures}" if coh_failures
+                 else f"{len(cal.incoherent)} judged case(s) contradict their own reason"))
+    print(f"COHERENCE    verdict vs its own rationale — {coh}")
     print(f"RULE CHECKS  fixtures {fx.passed}/{fx.total} pass  ({checks_covered})")
     cb = "—" if reg.citation_base is None else f"{reg.citation_base:.2f}"
     cc = "—" if reg.citation_cand is None else f"{reg.citation_cand:.2f}"
@@ -282,15 +364,26 @@ def main() -> int:
         print(f"[note] {note}")
     if cal.disagreements:
         print(f"[review] {', '.join(cal.disagreements)}")
+    if cal.incoherent:
+        print(f"[review] incoherent: {', '.join(cal.incoherent)}")
 
     # ---- verdict ----
     print(f"\nThresholds: judge >= {JUDGE_AGREEMENT_THRESHOLD:.2f}, "
-          f"fixtures = 100%, regression must flag.")
+          f"fixtures = 100%, regression must flag, coherence detector must fire.")
     problems: list[str] = []
     if not fx.all_pass:
         problems.append(f"rule-check fixtures failing ({fx.total - fx.passed}): {fx.failures}")
     if not reg.flagged:
         problems.append("injected regression NOT flagged — comparison logic is wrong")
+    if coh_failures:
+        problems.append(
+            f"verdict/reason coherence detector is broken: {coh_failures}"
+        )
+    if cal.incoherent:
+        problems.append(
+            f"judge contradicted its own rationale on {len(cal.incoherent)} case(s): "
+            f"{cal.incoherent} — the score cannot be trusted where the prose disagrees"
+        )
     if not is_mock and cal.agreement < JUDGE_AGREEMENT_THRESHOLD:
         problems.append(
             f"judge agreement {cal.agreement:.2f} below {JUDGE_AGREEMENT_THRESHOLD:.2f}"

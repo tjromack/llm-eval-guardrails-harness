@@ -69,3 +69,41 @@ def test_seed_reset_clears_runs():
     assert store.list_runs(conn) == []
     # check_results are cleared too.
     assert conn.execute("SELECT COUNT(*) FROM check_results").fetchone()[0] == 0
+
+
+# ---- Verdict/reason coherence (2026-07-21) ----------------------------------
+
+
+def test_detects_verdict_contradicting_its_own_reason():
+    """The 2026-07-16 failure mode: verdict says fail, prose concludes correct.
+
+    Calibration compares the *score* to a label and never reads the rationale, so
+    this class of judge error was structurally invisible until now.
+    """
+    from app.selfcheck import verdict_contradicts_reason
+
+    reason = (
+        "The explanation states 84075 maps to clm_0060-2, but the map shows otherwise... "
+        "Wait, checking: map lists 84075->clm_0060-2, so this is correct."
+    )
+    assert verdict_contradicts_reason(0.0, reason) is True
+    # ...and the mirror image: a passing score with negative prose.
+    assert verdict_contradicts_reason(1.0, "The output does not match the reference.") is True
+
+
+def test_coherent_verdicts_are_not_flagged():
+    """Guard against a detector that cries wolf — negatives are checked before
+    affirmatives because 'is correct' is a substring of 'is not correct'."""
+    from app.selfcheck import verdict_contradicts_reason
+
+    assert verdict_contradicts_reason(1.0, "The claim is supported by the cited context.") is False
+    assert verdict_contradicts_reason(0.0, "The answer is not supported by any source.") is False
+    # Ambiguous prose must not be forced into a polarity.
+    assert verdict_contradicts_reason(0.0, "Reviewed against the provided context.") is False
+
+
+def test_coherence_selftest_proves_the_detector_fires():
+    """A silent detector is a useless one — selfcheck must verify its own screen."""
+    from app.selfcheck import run_coherence_selftest
+
+    assert run_coherence_selftest() == []
