@@ -93,6 +93,50 @@ def test_http_transport_posts_input_and_parses_reply():
     assert "When must a breach" in seen["json"]  # input was forwarded as JSON
 
 
+def test_http_transport_reads_real_copilot_answer_shape():
+    """Lock in compatibility with the copilot's POST /answer (copilot DEC 014): its
+    {abstained, text, citations, top_score, provenance} maps to output=text, trace=citations —
+    so the http transport grades the real copilot with no shim (2026-07-26)."""
+    grounded = {
+        "question": "q", "abstained": False,
+        "text": "Medicare is the secondary payer during the coordination period [1].",
+        "reason": "", "top_score": 0.7529,
+        "citations": [{"marker": 1, "document": "42 CFR 411 Subpart F", "score": 0.7529}],
+        "provenance": {"synthesis_model": "x", "prompt_version": "v3"},
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert "coordination period" in request.read().decode()  # question forwarded as {"question": ...}
+        return httpx.Response(200, json=grounded, headers={"content-type": "application/json"})
+
+    r = RagCopilotAdapter(
+        transport="http", url="http://copilot.test/answer", http_client=_mock_client(handler)
+    ).run("who pays first during the coordination period?")
+    assert r.ok
+    assert r.output == grounded["text"]                 # `text` → output
+    assert "411 Subpart F" in str(r.trace["citations"])  # `citations` → trace
+
+
+def test_http_transport_reads_copilot_abstention_shape():
+    abstained = {
+        "question": "q", "abstained": True,
+        "text": "Insufficient source support for a grounded answer. Deferring to a human reviewer.",
+        "reason": "top retrieval score 0.006 < threshold 0.600", "top_score": 0.006,
+        "citations": [], "provenance": {},
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=abstained, headers={"content-type": "application/json"})
+
+    r = RagCopilotAdapter(
+        transport="http", url="http://copilot.test/answer", http_client=_mock_client(handler)
+    ).run("capital of France?")
+    assert r.ok
+    # the abstention message reaches the harness as output, where the abstention rule-check can match it
+    assert "Insufficient source support" in r.output
+    assert r.trace["citations"] == []
+
+
 def test_http_transport_reports_error_on_non_200():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(500, text="boom")

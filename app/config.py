@@ -33,7 +33,7 @@ class Settings:
 
     # Target adapter (Phase 2)
     rag_adapter: str = _get("RAG_COPILOT_ADAPTER", "http")
-    rag_url: str = _get("RAG_COPILOT_URL", "http://localhost:8001/ask")
+    rag_url: str = _get("RAG_COPILOT_URL", "http://localhost:8000/answer")
     rag_cmd: str = _get("RAG_COPILOT_CMD", "")
     rag_version: str = _get("RAG_COPILOT_VERSION", "baseline")
 

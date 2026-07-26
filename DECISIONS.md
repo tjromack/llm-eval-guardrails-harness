@@ -246,3 +246,20 @@ These are the script for "why did you build it this way?" Add an entry on every 
   directional (EVAL.md), not a statistical guarantee.
 - Revisit if: calibration needs a larger/stratified gold set, per-criterion thresholds, or
   precision/recall on the judge's "fail" call rather than raw agreement.
+
+## 017. Grade the real copilot over HTTP (`/answer`); the command shim is the fallback
+- Decision: With the copilot's new `POST /answer` (copilot DEC 014), the harness's existing **http**
+  transport grades the real copilot directly — `RAG_COPILOT_ADAPTER=http`,
+  `RAG_COPILOT_URL=http://localhost:8000/answer`. The endpoint returns `{text, citations, ...}`, which
+  `_parse_payload` already maps to `output=text` / `trace=citations`, so **no adapter code changed** — only
+  the default URL (`/ask` → `/answer`) and docs. The `tools/real_rag_copilot.py` command shim stays as the
+  **no-server fallback** (it reloads the copilot's model per case). Two regression tests lock the
+  `/answer` response shape into the http transport.
+- Why: The http transport was built first (Decision 002) for a JSON endpoint that didn't exist yet, so the
+  subprocess shim was the stopgap — 8–23 s/case reloading the model. A warm server removes the reload and
+  makes Run #N fast, which matters once the suite grows. Keeping the shim means the harness still grades the
+  copilot with no server running (CI, a cold demo).
+- Rejected: Deleting the command shim (loses the no-server path); adding HTTP inside the shim (redundant —
+  the adapter already has a tested http transport); changing `_parse_payload` (the copilot's `text`/
+  `citations` already fit the existing keys). Verified live: http adapter vs a warm copilot returned the
+  grounded answer with a full citation trace (score 0.7529) and an abstention in 240 ms.

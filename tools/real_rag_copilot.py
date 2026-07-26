@@ -1,13 +1,17 @@
 #!/usr/bin/env python
 """Target shim: the harness's CLI contract -> the REAL Regulatory RAG Copilot.
 
-The harness `command` adapter passes a case as JSON on **stdin** and expects a JSON
-object back. The copilot's own CLI (`python -m app.answer "<question>" --json`) takes
-the question as an **argv positional**. This ~40-line shim bridges the two, so the
-harness can grade the actual copilot instead of the bundled synthetic stand-in.
+⚠️ FALLBACK PATH. Since 2026-07-26 the copilot exposes a JSON endpoint (`POST /answer`,
+copilot DEC 014), so the harness's **http** transport can grade it directly against a warm
+server — no per-case model reload. Prefer that (harness DEC 017):
+    RAG_COPILOT_ADAPTER=http
+    RAG_COPILOT_URL=http://localhost:8000/answer   (start the copilot with `make run`)
 
-It shells out to the copilot's own venv (rather than importing it) so the two
-projects keep separate dependency trees — the adapter boundary stays honest.
+This shim remains for the **no-server** case: the `command` adapter passes a case as JSON on
+**stdin**; the copilot's CLI (`python -m app.answer "<question>" --json`) takes the question as an
+**argv positional**, and this bridges the two. It shells out to the copilot's own venv (rather than
+importing it) so the two projects keep separate dependency trees — but it reloads the model on every
+case, which is exactly what the endpoint avoids.
 
 Usage (set in the harness .env):
     RAG_COPILOT_ADAPTER=command
