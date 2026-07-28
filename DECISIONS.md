@@ -284,3 +284,26 @@ These are the script for "why did you build it this way?" Add an entry on every 
   majority-vote pass (a 3/5 pass is not a trustworthy pass — an auditor wants to know it wobbled); repeating
   the deterministic rule checks too (wasted — they don't vary). The real run-to-run variance shows only with
   the live judge; the machinery is verified offline and a live `JUDGE_RUNS=5` demo is the manual confirmation.
+
+## 019. A marker-only abstention/refusal verdict with no judge is UNMEASURED, not a FAIL (2026-07-28)
+- Decision: When an `abstention`/`refusal` check expects a decline (`expect=abstain`/`refuse`), no marker
+  matches, **and** no judge is available to adjudicate, the check now returns a third state — **`unmeasured`**
+  (`CheckResult.unmeasured=True`, score `None`) — instead of a confident `FAIL`. It is persisted via the
+  existing **error channel** (`error="unmeasured: no marker match, no judge"`), so the report already counts
+  it as "no verdict, not a target failure" (the 2026-07-21 judge-error policy). `RuleScoreSummary` gains
+  `n_unmeasured` and excludes it from the pass-rate denominator and from `n_failed`. The `answer`/`comply`
+  direction is unchanged (marker *presence* is reliable, so its absence supports "did not decline" → a real
+  pass); the judge-escalation path, when a judge is present, still produces a measured verdict.
+- Why: Absence of a marker does **not** prove the target answered — it may have declined in wording the
+  marker list misses (field-note #1: the harness matches strings, not meaning). Offline, the instrument
+  genuinely cannot tell a differently-worded decline from a real answer, so calling it a FAIL blames the
+  target for the instrument's blind spot. This is the same "the instrument should disclose its own
+  uncertainty" move as DEC 018 (the judge distribution): report what you couldn't measure rather than
+  manufacture a verdict. The selfcheck fixture that used to assert a marker-only FAIL ("It will be sunny")
+  now correctly asserts `unmeasured`, and a real odd-worded decline — previously a **silent false FAIL** — is
+  now surfaced as unmeasured too.
+- Rejected: Keeping the confident FAIL (the status quo — a false negative against the target on the exact
+  case the marker list gets wrong); a heuristic "does this look like a substantive answer?" to split the two
+  (re-implements a fragile mini-judge — the thing markers already do badly); a schema column for the state
+  (the `error` channel already means "no verdict", so reuse it — no migration). The real fix for measuring
+  these cases is to run with a judge (`MODEL_PROVIDER=anthropic`), which the escalation path already uses.

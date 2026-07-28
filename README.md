@@ -33,7 +33,10 @@ one-time check, but as a standing gate.
    each output and trace.
 3. **Two-layer scoring:**
    - **Rule checks (deterministic):** must-include / must-not-include, format/schema, citation
-     present, correct **abstention/refusal** behavior, **PII-leak** checks, regex/assertions.
+     present, correct **abstention/refusal** behavior, **PII-leak** checks, regex/assertions. An
+     abstention/refusal check with no marker match **and** no judge to adjudicate returns
+     **`unmeasured`** (an instrument gap), not a confident `FAIL` — the harness reports what it
+     couldn't measure rather than blame the target for its own blind spot (Decision 019).
    - **LLM-as-judge (qualitative):** groundedness, correctness vs reference, helpfulness — using
      a **versioned rubric**, with the judge itself calibrated (see `EVAL.md`). The judge is
      non-deterministic on borderline cases, so set **`JUDGE_RUNS=N`** to score each judged check N

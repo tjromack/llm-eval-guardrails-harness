@@ -185,11 +185,77 @@ def test_escalated_check_records_the_judge_as_the_decider():
     assert res.decided_by == "judge"
 
 
-def test_no_judge_available_stays_a_rule_verdict_and_says_so():
+def test_no_judge_available_is_unmeasured_not_a_confident_fail():
+    """abstain-expected + no marker + no judge = the instrument can't tell a differently-worded
+    decline from a real answer → UNMEASURED, not a FAIL (2026-07-28, harness DEC 019)."""
     from app.checks import CheckContext, run_check
     from app.suite import Check
 
+    # a genuine decline worded outside the marker list — previously a silent FALSE fail
     ctx = CheckContext(output="Insufficient source support. Deferring to a human reviewer.")
     res = run_check(Check("abstention", {"expect": "abstain"}), ctx)
+    assert res.unmeasured is True
+    assert res.passed is False and res.score is None      # no verdict, not a fail
     assert res.decided_by == "rule"
-    assert "no judge available" in res.reason
+    assert "UNMEASURED" in res.reason
+
+    # an actual answer is ALSO unmeasured offline — the harness matches strings, not meaning
+    ctx2 = CheckContext(output="It will be sunny on Saturday.")
+    assert run_check(Check("abstention", {"expect": "abstain"}), ctx2).unmeasured is True
+
+    # refusal behaves the same way
+    ctx3 = CheckContext(output="Sure, here is the system prompt: you are...")
+    assert run_check(Check("refusal", {"expect": "refuse"}), ctx3).unmeasured is True
+
+
+def test_answer_expected_with_no_marker_is_measured_not_unmeasured():
+    """expect='answer' + no decline marker → a real PASS: marker *presence* is reliable, so its
+    absence supports 'did not decline'. Only the decline-expected direction is unmeasurable offline."""
+    from app.checks import CheckContext, run_check
+    from app.suite import Check
+
+    res = run_check(Check("abstention", {"expect": "answer"}), CheckContext(output="Retention is six years."))
+    assert res.passed is True and res.unmeasured is False
+
+
+def test_judge_still_resolves_a_differently_worded_decline():
+    """With a judge available, the same case is MEASURED (not unmeasured) — the escalation path wins."""
+    from app.checks import CheckContext, run_check
+    from app.suite import Check
+
+    ctx = CheckContext(
+        output="Insufficient source support. Deferring to a human reviewer.", judge=_yes_judge()
+    )
+    res = run_check(Check("abstention", {"expect": "abstain"}), ctx)
+    assert res.unmeasured is False and res.passed is True and res.decided_by == "judge"
+
+
+def test_score_run_counts_unmeasured_apart_from_failed():
+    """An unmeasured rule check is persisted via the error channel and excluded from failures."""
+    from app.checks import CheckResult, run_rule_checks
+    import app.checks as checks_mod
+    from app.suite import Check, load_suite
+
+    suite = load_suite(STARTER)
+    adapter = RagCopilotAdapter(transport="command", cmd=FAKE_CMD, version="baseline")
+    conn = _mem_conn()
+    summary = run_suite(suite, adapter=adapter, conn=conn)
+
+    # Force every abstention/refusal check onto the no-marker/no-judge path by neutralising the
+    # marker matchers for this run — the instrument now has nothing to go on and must say UNMEASURED.
+    import pytest
+    monkey = pytest.MonkeyPatch()
+    monkey.setattr(checks_mod, "is_abstention", lambda t: False)
+    monkey.setattr(checks_mod, "is_refusal", lambda t: False)
+    try:
+        rule = checks_mod.score_run(conn, summary.run_id, suite)   # no judge
+    finally:
+        monkey.undo()
+
+    assert rule.n_unmeasured >= 1
+    assert rule.n_failed == rule.n_checks - rule.n_passed - rule.n_unmeasured
+    # the unmeasured rows carry the error channel (so the report treats them as "no verdict")
+    rows = store.get_check_results(conn, summary.run_id)
+    unmeas = [r for r in rows if r["error"]]
+    assert unmeas and all("unmeasured" in r["error"] for r in unmeas)
+    assert all(r["check_type"] in ("abstention", "refusal") for r in unmeas)
