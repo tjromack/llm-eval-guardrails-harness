@@ -263,3 +263,24 @@ These are the script for "why did you build it this way?" Add an entry on every 
   the adapter already has a tested http transport); changing `_parse_payload` (the copilot's `text`/
   `citations` already fit the existing keys). Verified live: http adapter vs a warm copilot returned the
   grounded answer with a full citation trace (score 0.7529) and an abstention in 240 ms.
+
+## 018. The judge reports a distribution over N runs, not a single sample (2026-07-28)
+- Decision: `score_run` can repeat **only the judged step** `JUDGE_RUNS` times per check (default **1** =
+  today's behavior; `--repeat N` on `python -m app.judge`) and aggregates the scores with a pure, testable
+  `aggregate_runs` → a `JudgeDistribution` carrying `{mean, lo, hi, stable, passed, near_threshold}`. A check
+  is a clean **pass only if every scored run passes** (an unstable split is **not** a pass — fail-closed on
+  instability); a split is reported **UNSTABLE**; a judged score within `JUDGE_UNSTABLE_BAND` (default 0.05) of
+  the threshold is flagged **near-threshold — verify**, even at N=1. The distribution rides in the persisted
+  `reason`; the summary and CLI report `n_unstable`, and the CLI exits non-zero when any check is unstable.
+  Deterministic rule checks never repeat; an `unknown_criterion` (deterministic) is scored once, not N times.
+- Why: The judge is **non-deterministic on borderline cases** — Run #3 rescored 13→15→16→17 of 17, and a case
+  documented as "a REAL quality finding" later passed (field-notes lesson #3). Presenting one run as a verdict
+  is the suite's own "shape, not sense" failure, in the tool whose job is measurement. Reporting the spread +
+  a stability flag makes a noisy single sample an honest measurement, and the near-threshold band flags a
+  fragile pass even when only one run is affordable. `aggregate_runs` is pure so the whole thing is proven
+  offline by injecting scores — no live model, no real variance needed — keeping CI deterministic and green.
+- Rejected: Presenting a single run as truth (the status quo — dishonest on borderline cases); averaging into
+  a single score with no spread/stability flag (hides the split — a mean of 0.6 from {0.2, 1.0} reads clean);
+  majority-vote pass (a 3/5 pass is not a trustworthy pass — an auditor wants to know it wobbled); repeating
+  the deterministic rule checks too (wasted — they don't vary). The real run-to-run variance shows only with
+  the live judge; the machinery is verified offline and a live `JUDGE_RUNS=5` demo is the manual confirmation.

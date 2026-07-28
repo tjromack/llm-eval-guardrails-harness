@@ -31,6 +31,13 @@ class Settings:
     ollama_base_url: str = _get("OLLAMA_BASE_URL", "http://localhost:11434")
     ollama_model: str = _get("OLLAMA_MODEL", "llama3.1")
 
+    # Judge stability (2026-07-28): the judge is non-deterministic on borderline cases, so a single
+    # run is not a measurement. JUDGE_RUNS repeats ONLY the judged step per check and reports the
+    # distribution + a stability flag (rule checks never repeat). A judged score within
+    # JUDGE_UNSTABLE_BAND of the pass threshold is flagged "near-threshold" even in a single run.
+    judge_runs: int = max(1, int(_get("JUDGE_RUNS", "1")))
+    judge_unstable_band: float = float(_get("JUDGE_UNSTABLE_BAND", "0.05"))
+
     # Target adapter (Phase 2)
     rag_adapter: str = _get("RAG_COPILOT_ADAPTER", "http")
     rag_url: str = _get("RAG_COPILOT_URL", "http://localhost:8000/answer")

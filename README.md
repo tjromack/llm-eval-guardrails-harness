@@ -35,7 +35,11 @@ one-time check, but as a standing gate.
    - **Rule checks (deterministic):** must-include / must-not-include, format/schema, citation
      present, correct **abstention/refusal** behavior, **PII-leak** checks, regex/assertions.
    - **LLM-as-judge (qualitative):** groundedness, correctness vs reference, helpfulness — using
-     a **versioned rubric**, with the judge itself calibrated (see `EVAL.md`).
+     a **versioned rubric**, with the judge itself calibrated (see `EVAL.md`). The judge is
+     non-deterministic on borderline cases, so set **`JUDGE_RUNS=N`** to score each judged check N
+     times and report the **distribution + a stability flag** — a split verdict shows as `UNSTABLE`
+     rather than a clean pass, and a score within `JUDGE_UNSTABLE_BAND` of the threshold is flagged
+     `near-threshold` (Decision 018). A single run is a sample, not a measurement.
 4. **Aggregation & thresholds** — per-case and per-suite scores with pass/fail gates.
 5. **Regression & comparison** — store runs; compare across prompts, models, and versions; flag
    deltas; render a quality dashboard.
