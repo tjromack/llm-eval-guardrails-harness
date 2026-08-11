@@ -1,5 +1,8 @@
 # LLM Evaluation & Guardrails Harness
 
+> © 2026 Trevor J. Romack — **source-available for review, not open-source** ([LICENSE](LICENSE)). No reuse or
+> commercial use without permission. · tjromack@gmail.com
+
 A test harness for LLM systems: **test set → run the target → score with rule checks +
 LLM-as-judge → regression & quality dashboard.** It points at any LLM system through a thin
 adapter; the first wired target is the Regulatory RAG Copilot, and the same harness can grade
