@@ -11,6 +11,9 @@ the rest. This is the capstone — the tool that evaluates the other projects.
 > Built and demonstrated on **synthetic and public data only** — no PHI, no internal systems.
 > A personal portfolio prototype.
 
+**Demonstrates:** validating the evaluator itself — a judge calibrated against a human gold set, deterministic checks,
+and regression detection proven by an injected, known break.
+
 ---
 
 ## The problem it solves
@@ -79,6 +82,7 @@ See `DECISIONS.md` for why each choice was made over the alternatives.
 
 ## Quickstart
 
+**macOS / Linux:**
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
@@ -88,6 +92,16 @@ make run       # uvicorn app.main:app --reload  → http://localhost:8000
 make eval-run  # run the suite against the configured target
 make selfcheck # validate the harness itself: judge calibration + rule-check fixtures (EVAL.md)
 make reset     # clear runs + re-seed for a clean demo
+```
+
+**Windows (PowerShell):** no `make`, and PowerShell has no `&&` — call the modules directly:
+```powershell
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+
+.venv\Scripts\python -m app.seed
+.venv\Scripts\python -m uvicorn app.main:app --port 8000     # → http://localhost:8000
+.venv\Scripts\python -m app.selfcheck                        # validate the harness (EVAL.md)
 ```
 
 Set `ANTHROPIC_API_KEY` in `.env`, or `MODEL_PROVIDER=ollama` to run the judge locally. The RAG
@@ -106,6 +120,19 @@ known-bad fixtures, and a confirmation that an injected regression actually gets
   load; the LLM judge is calibrated and versioned, never blindly trusted.
 - **Guardrail and red-team cases are first-class** — abstention, refusal, and PII-leak checks are
   part of the suite, not an afterthought.
+
+## Limits — what this does *not* let you claim
+
+- **Not a benchmark or a certification.** The judge is calibrated against a **12-case human gold set** — directional, not
+  a leaderboard. Agreement of 1.00 on 12 cases means the judge and the labels agree *on this set*; disagreements are
+  spot-checked by hand.
+- **The judge is only as good as its calibration.** Run without a provider key, the self-check uses an offline **mock**
+  judge and says so — a mock agreement number is not evidence of calibration.
+- **Self-validation proves the harness behaves as designed, not that a suite is complete.** Suite coverage for any given
+  target is a separate, ongoing effort.
+- **Synthetic / public test data only** — no PHI, no internal systems.
+- **It measures; it does not fix.** The harness reports what passed, failed, or is `unmeasured`; what to do about a
+  regression is a human call.
 
 ## Path to production
 
@@ -136,4 +163,6 @@ DECISIONS.md  DEMO.md  EVAL.md  TODO.md  CLAUDE.md
 
 ## Status
 
-In development. See `TODO.md` for the phased plan.
+Built and self-validated. `make selfcheck` runs the harness against itself — judge calibration, rule-check fixtures, and
+an injected regression. Current: **judge agreement 1.00 (12/12), fixtures 23/23, regression caught** (`EVAL.md`). See
+`TODO.md` for the phased plan.

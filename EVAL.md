@@ -55,12 +55,22 @@ regression** versus the baseline run. If it doesn't surface, the comparison logi
 
 ## Output
 
+Real output of `make selfcheck` against the configured judge (Opus 4.8) over the 12-case gold set:
+
 ```
-JUDGE        agreement with human labels 0.93  (disagreements: 2/30 — review)
-RULE CHECKS  fixtures 28/28 pass  (citation, PII-leak, abstention, format)
-REGRESSION   injected degraded target flagged: YES (citation-present 0.98 -> 0.41)
-JUDGE META   model=<name>  rubric=<version>
+JUDGE        agreement with human labels 1.00  (12/12; no disagreements)
+COHERENCE    verdict vs its own rationale — detector OK; no self-contradictions in the gold set
+RULE CHECKS  fixtures 23/23 pass  (citation, PII-leak, abstention, refusal, format, include/exclude)
+REGRESSION   injected degraded target flagged: YES  (citation_present 1.00 -> 0.00; case pass 89% -> 33%, 11 checks)
+JUDGE META   model=anthropic:claude-opus-4-8  rubric=g1
+
+VERDICT: PASS — judge calibrated, checks sound, regression caught.
 ```
+
+The gold set is **12 human-labelled cases** — a small, directional calibration set, not a benchmark; disagreements are
+spot-checked by hand. Run **without** a provider key, the self-check falls back to an **offline mock judge and says so
+loudly** (`model=mock…`): the mock is not a calibrated judge, so its agreement number is not evidence of calibration —
+only a real-provider run is.
 
 ## Suggested thresholds
 

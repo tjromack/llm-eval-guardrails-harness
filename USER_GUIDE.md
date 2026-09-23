@@ -256,11 +256,12 @@ make selfcheck
 Expected output (offline, `MODEL_PROVIDER=mock`):
 ```
 JUDGE        agreement with human labels 0.92  (11/12; disagreements: 1 — review)
-RULE CHECKS  fixtures 22/22 pass  (citation, PII-leak, abstention, refusal, format, include/exclude)
+RULE CHECKS  fixtures 23/23 pass  (citation, PII-leak, abstention, refusal, format, include/exclude)
 REGRESSION   injected degraded target flagged: YES  (citation_present 1.00 -> 0.00; case pass 100% -> 33%, 11 checks)
 JUDGE META   model=mock:heuristic-v1  rubric=g1
 VERDICT: PASS (hard gates) — calibration shown with the OFFLINE MOCK judge; run with a real provider ...
 ```
+With a **real** provider (Opus 4.8) the judge scores **1.00 (12/12)** — the calibrated number `EVAL.md` records.
 
 **How to read it:**
 - **JUDGE agreement** — how often the judge agrees with human labels on a 12-case gold set. The
@@ -275,7 +276,7 @@ VERDICT: PASS (hard gates) — calibration shown with the OFFLINE MOCK judge; ru
   for the offline mock (prints a loud caveat) and *hard* for a real provider (a real judge below
   0.90 fails the run).
 
-"Good" looks like: fixtures 22/22, regression YES, and — with a real provider — judge agreement ≥ 0.90.
+"Good" looks like: fixtures 23/23, regression YES, and — with a real provider — judge agreement ≥ 0.90.
 
 ---
 
