@@ -14,6 +14,12 @@ the rest. This is the capstone — the tool that evaluates the other projects.
 **Demonstrates:** validating the evaluator itself — a judge calibrated against a human gold set, deterministic checks,
 and regression detection proven by an injected, known break.
 
+![make selfcheck — the harness graded against itself: judge agreement 1.00, fixtures 23/23, an injected regression caught](docs/selfcheck.png)
+
+*`make selfcheck` grades the harness against itself: the judge agrees with the human gold set (**1.00, 12/12**), every
+rule-check fixture passes (**23/23**), and an **injected regression is caught** (`citation_present 1.00 → 0.00`). An
+evaluator that can't show its own numbers shouldn't be trusted with anyone else's.*
+
 ---
 
 ## The problem it solves
